@@ -32,8 +32,8 @@
  *   Form 1040 Instructions (2025)
  *   IRC S.62 -- definition of AGI
  */
-
 import type { NodeDefinition } from '../../../core/graph/node.types';
+import { computeTax } from "./constants/index";
 import {
   // NodeDefinition,
   NodeKind,
@@ -543,22 +543,48 @@ const line15_taxableIncome: NodeDefinition = {
  * Next step after this file: add F1040_CONSTANTS bracket tables
  * and a computeTax(taxableIncome, filingStatus, taxYear) function.
  */
+// const line16_tax: NodeDefinition = {
+//   id:                 `${FORM_ID}.joint.line16_tax`,
+//   kind:               NodeKind.INPUT,
+//   label:              'Form 1040 Line 16 -- Tax',
+//   description:        'Tax from the tax tables or tax computation worksheet. Not yet computed automatically -- will use Line 15 (taxable income) once bracket tables are implemented.',
+//   valueType:          NodeValueType.CURRENCY,
+//   allowNegative:      false,
+//   owner:              NodeOwner.JOINT,
+//   repeatable:         false,
+//   applicableTaxYears: APPLICABLE_YEARS,
+//   classifications:    ['intermediate'],
+//   irsCitation:        { form: 'f1040', line: '16' },
+//   source:             InputSource.PREPARER,
+//   questionId:         'f1040.q.tax',
+//   defaultValue:       0,
+// };
+
+
+
+
 const line16_tax: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line16_tax`,
-  kind:               NodeKind.INPUT,
-  label:              'Form 1040 Line 16 -- Tax',
-  description:        'Tax from the tax tables or tax computation worksheet. Not yet computed automatically -- will use Line 15 (taxable income) once bracket tables are implemented.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line16_tax`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 16 -- Tax",
+  description: "Tax computed from taxable income (Line 15) using IRS brackets.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
-  irsCitation:        { form: 'f1040', line: '16' },
-  source:             InputSource.PREPARER,
-  questionId:         'f1040.q.tax',
-  defaultValue:       0,
+  classifications: ["intermediate"],
+  irsCitation: { form: "f1040", line: "16" },
+
+  dependencies: [`${FORM_ID}.joint.line15_taxableIncome`],
+
+  compute: (ctx) => {
+    const c = getF1040Constants(ctx.taxYear);
+    const ti = safeNum(ctx.get(`${FORM_ID}.joint.line15_taxableIncome`));
+    return computeTax(ti, ctx.filingStatus, c); // computeTax already returns 0 for <=0
+  },
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LINE 17 -- ADDITIONAL TAXES FROM SCHEDULE 2

@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PaisaTax — Engine Lifecycle Visualizer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg:        #0a0c10;
+    --surface:   #11141a;
+    --surface2:  #181c25;
+    --border:    #1e2533;
+    --border2:   #2a3347;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --dim:       #3a4560;
+
+    --input:     #22c55e;
+    --computed:  #3b82f6;
+    --joint:     #8b5cf6;
+    --spouse:    #f59e0b;
+    --dirty:     #ef4444;
+    --clean:     #22c55e;
+    --skipped:   #6b7280;
+    --adj:       #f97316;
+    --dep:       #06b6d4;
+
+    --phase1:    #3b82f6;
+    --phase2:    #8b5cf6;
+    --phase3:    #22c55e;
+
+    --glow-blue: 0 0 20px rgba(59,130,246,0.3);
+    --glow-purple: 0 0 20px rgba(139,92,246,0.3);
+    --glow-green: 0 0 20px rgba(34,197,94,0.3);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 32px 40px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(59,130,246,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+  .logo span { color: var(--phase1); }
+  .subtitle {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── PHASE TABS ── */
+  .phase-nav {
+    display: flex;
+    gap: 0;
+    padding: 24px 40px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .phase-tab {
+    padding: 12px 28px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    top: 1px;
+  }
+  .phase-tab .num {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+  }
+  .phase-tab:hover { color: var(--text); }
+  .phase-tab.active { color: #fff; border-bottom-color: currentColor; }
+  .phase-tab[data-phase="1"] .num { color: var(--phase1); }
+  .phase-tab[data-phase="2"] .num { color: var(--phase2); }
+  .phase-tab[data-phase="3"] .num { color: var(--phase3); }
+  .phase-tab[data-phase="1"].active { color: var(--phase1); }
+  .phase-tab[data-phase="2"].active { color: var(--phase2); }
+  .phase-tab[data-phase="3"].active { color: var(--phase3); }
+
+  /* ── LAYOUT ── */
+  .main {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    height: calc(100vh - 130px);
+  }
+.sidebar {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;          /* ⭐ important in grid/flex */
+}
+
+/* Let the first card (Selected Node) grow and scroll */
+.sidebar .card:first-child {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;          /* ⭐ critical */
+}
+
+.sidebar .card:first-child .card-body {
+  flex: 1;
+  min-height: 0;          /* ⭐ critical */
+  overflow-y: auto;       /* ✅ allows text to show via scroll */
+}
+  .canvas-area {
+    overflow: auto;
+    padding: 32px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  /* ── SIDEBAR CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-header .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .card-body { padding: 14px; }
+
+
+  /* ── LEGEND ── */
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+    font-size: 11px;
+  }
+  .legend-chip {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .legend-chip.circle { border-radius: 50%; }
+
+  /* ── NODE DETAILS PANEL ── */
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--muted); }
+  .detail-value { color: var(--text); font-weight: 600; max-width: 180px; text-align: right; word-break: break-all; }
+  .tag {
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .tag.input    { background: rgba(34,197,94,0.15);  color: var(--input);   border: 1px solid rgba(34,197,94,0.3); }
+  .tag.computed { background: rgba(59,130,246,0.15); color: var(--computed);border: 1px solid rgba(59,130,246,0.3); }
+  .tag.clean    { background: rgba(34,197,94,0.15);  color: var(--clean); }
+  .tag.dirty    { background: rgba(239,68,68,0.15);  color: var(--dirty); }
+  .tag.skipped  { background: rgba(107,114,128,0.2); color: var(--skipped); }
+
+  /* ── PHASE PANELS ── */
+  .phase-panel { display: none; }
+  .phase-panel.active { display: flex; flex-direction: column; gap: 28px; }
+
+  /* ── SECTION LABELS ── */
+  .section-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── GRAPH SVG WRAPPER ── */
+  .graph-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    position: relative;
+  }
+  svg.graph {
+    display: block;
+    overflow: visible;
+  }
+
+  /* ── NODES ── */
+  .node-group { cursor: pointer; }
+  .node-group:hover .node-rect { filter: brightness(1.3); }
+
+  .node-rect {
+    rx: 6;
+    transition: filter 0.15s;
+  }
+  .node-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    fill: #fff;
+    dominant-baseline: middle;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  .node-sublabel {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    fill: rgba(255,255,255,0.5);
+    dominant-baseline: middle;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+  .node-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    dominant-baseline: middle;
+    text-anchor: middle;
+    pointer-events: none;
+  }
+
+  /* ── EDGES ── */
+  .edge {
+    fill: none;
+    stroke-width: 1.5;
+    marker-end: url(#arrow-adj);
+    opacity: 0.6;
+  }
+  .edge.dep {
+    stroke: var(--dep);
+    stroke-dasharray: 5 3;
+    marker-end: url(#arrow-dep);
+  }
+  .edge.adj {
+    stroke: var(--adj);
+    marker-end: url(#arrow-adj);
+  }
+  .edge.dirty-path {
+    stroke: var(--dirty);
+    stroke-width: 2.5;
+    opacity: 1;
+    animation: pulse-edge 1.2s ease-in-out infinite;
+    marker-end: url(#arrow-dirty);
+  }
+  .edge.scan {
+    stroke: var(--phase3);
+    stroke-width: 2;
+    opacity: 0;
+    marker-end: url(#arrow-scan);
+  }
+  .edge.scan.active {
+    opacity: 1;
+    animation: scan-flash 0.4s ease-out forwards;
+  }
+
+  @keyframes pulse-edge {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+  @keyframes scan-flash {
+    0%   { opacity: 1; stroke-width: 3; }
+    100% { opacity: 0.3; stroke-width: 1.5; }
+  }
+
+  /* ── TOPORDER LIST ── */
+  .toporder-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .toporder-item {
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+  .toporder-item .order-num {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    background: rgba(255,255,255,0.15);
+  }
+  .toporder-arrow {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 300;
+  }
+
+  /* ── RUNTIME STEPPER ── */
+  .stepper {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .step {
+    display: flex;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    opacity: 0.35;
+    transition: opacity 0.3s;
+    cursor: pointer;
+  }
+  .step:last-child { border-bottom: none; }
+  .step.active { opacity: 1; }
+  .step.done { opacity: 0.7; }
+  .step-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    color: var(--muted);
+    transition: all 0.3s;
+  }
+  .step.active .step-num {
+    border-color: var(--phase3);
+    color: var(--phase3);
+    box-shadow: 0 0 12px rgba(34,197,94,0.3);
+  }
+  .step.done .step-num {
+    background: rgba(34,197,94,0.2);
+    border-color: var(--phase3);
+    color: var(--phase3);
+  }
+  .step-content { flex: 1; }
+  .step-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .step-desc { color: var(--muted); font-size: 11px; line-height: 1.5; }
+  .step-code {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 10px;
+    color: var(--phase3);
+    line-height: 1.6;
+  }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    padding: 8px 18px;
+    border-radius: 5px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--muted); background: var(--surface); }
+  .btn.primary {
+    background: rgba(59,130,246,0.15);
+    border-color: rgba(59,130,246,0.4);
+    color: var(--phase1);
+  }
+  .btn.primary:hover { background: rgba(59,130,246,0.25); }
+  .btn.success {
+    background: rgba(34,197,94,0.15);
+    border-color: rgba(34,197,94,0.4);
+    color: var(--phase3);
+  }
+
+  /* ── MAP DISPLAY ── */
+  .map-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .map-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5px;
+  }
+  .map-table th {
+    padding: 7px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border2);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--surface2);
+  }
+  .map-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .map-table tr:last-child td { border-bottom: none; }
+  .map-table tr.highlight td { background: rgba(59,130,246,0.08); }
+  .node-id-cell {
+    font-size: 10px;
+    color: var(--text);
+    max-width: 150px;
+    word-break: break-all;
+    line-height: 1.4;
+  }
+  .node-id-cell small { color: var(--muted); }
+  .targets-cell {
+    font-size: 10px;
+    color: var(--adj);
+    line-height: 1.8;
+  }
+  .targets-cell.dep { color: var(--dep); }
+  .empty-set { color: var(--dim); font-style: italic; }
+
+  /* ── KAHN ANIMATION ── */
+  .kahn-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .kahn-round {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .kahn-round-header {
+    padding: 7px 12px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kahn-round-body {
+    padding: 10px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .kahn-node {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 10px;
+    border: 1px solid;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .kahn-node.pulled {
+    background: rgba(59,130,246,0.15);
+    border-color: rgba(59,130,246,0.4);
+    color: var(--phase1);
+  }
+  .kahn-node.queued {
+    background: rgba(139,92,246,0.15);
+    border-color: rgba(139,92,246,0.4);
+    color: var(--phase2);
+  }
+  .kahn-node.waiting {
+    background: rgba(30,37,51,0.8);
+    border-color: var(--border2);
+    color: var(--muted);
+  }
+  .kahn-node.decremented {
+    background: rgba(249,115,22,0.15);
+    border-color: rgba(249,115,22,0.4);
+    color: var(--adj);
+  }
+  .in-degree-badge {
+    font-size: 8px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+  }
+  .kahn-arrow { color: var(--muted); font-size: 14px; }
+  .toporder-result {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 10px;
+    background: rgba(34,197,94,0.05);
+    border: 1px solid rgba(34,197,94,0.2);
+    border-radius: 6px;
+    margin-top: 4px;
+  }
+  .toporder-chip {
+    padding: 3px 9px;
+    border-radius: 3px;
+    font-size: 10px;
+    background: rgba(34,197,94,0.15);
+    border: 1px solid rgba(34,197,94,0.3);
+    color: var(--phase3);
+    font-weight: 600;
+  }
+  .toporder-chip.spouse {
+    background: rgba(245,158,11,0.15);
+    border-color: rgba(245,158,11,0.3);
+    color: var(--spouse);
+  }
+
+  /* ── DIRTY ANIMATION ── */
+  @keyframes dirty-flash {
+    0%   { filter: brightness(1); }
+    30%  { filter: brightness(2.5) saturate(1.5); }
+    100% { filter: brightness(1); }
+  }
+  .dirty-animate { animation: dirty-flash 0.5s ease-out forwards; }
+
+  /* ── SCAN ANIMATION ── */
+  @keyframes scan-glow {
+    0%   { filter: brightness(1); }
+    50%  { filter: brightness(2); }
+    100% { filter: brightness(1.3); }
+  }
+  .scan-animate { animation: scan-glow 0.3s ease-out forwards; }
+
+  /* ── INLINE CODE ── */
+  code {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 10px;
+    color: var(--phase1);
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── SPOUSE MIRROR BADGE ── */
+  .mirror-badge {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    background: rgba(245,158,11,0.15);
+    border: 1px solid rgba(245,158,11,0.3);
+    color: var(--spouse);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── INFO BOX ── */
+  .info-box {
+    padding: 12px 14px;
+    border-radius: 6px;
+    border-left: 3px solid;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .info-box.blue  { background: rgba(59,130,246,0.07);  border-color: var(--phase1); }
+  .info-box.purple{ background: rgba(139,92,246,0.07); border-color: var(--phase2); }
+  .info-box.green { background: rgba(34,197,94,0.07);  border-color: var(--phase3); }
+  .info-box strong { color: var(--text); }
+
+  .fade-in { animation: fadeIn 0.3s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Paisa<span>Tax</span></div>
+  <div class="subtitle">Engine Lifecycle Visualizer — registerNodes → initializeSession → process</div>
+</header>
+
+<nav class="phase-nav">
+  <div class="phase-tab active" data-phase="1" onclick="showPhase(1)">
+    <span class="num">1</span> Sort #1 — registerNodes
+  </div>
+  <div class="phase-tab" data-phase="2" onclick="showPhase(2)">
+    <span class="num">2</span> Sort #2 — initializeSession
+  </div>
+  <div class="phase-tab" data-phase="3" onclick="showPhase(3)">
+    <span class="num">3</span> Runtime — process()
+  </div>
+</nav>
+
+<div class="main">
+
+  <!-- ════════════════════════════════════════════════════ SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="card">
+      <div class="card-header">
+        <span class="dot" style="background:var(--muted)"></span>
+        Selected Node
+      </div>
+      <div class="card-body" id="node-detail">
+        <div style="color:var(--muted);font-size:11px;text-align:center;padding:22px 0;">
+          Click any node in the graph to inspect it
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="dot" style="background:var(--muted)"></span>
+        Node Types
+      </div>
+      <div class="card-body">
+        <div class="legend-row">
+          <div class="legend-chip" style="background:var(--input)"></div>
+          <span style="color:var(--input);font-weight:700">INPUT</span>
+          <span style="color:var(--muted)">— value from preparer/OCR</span>
+        </div>
+        <div class="legend-row">
+          <div class="legend-chip" style="background:var(--computed)"></div>
+          <span style="color:var(--computed);font-weight:700">COMPUTED</span>
+          <span style="color:var(--muted)">— derived by compute()</span>
+        </div>
+        <div class="legend-row">
+          <div class="legend-chip" style="background:var(--joint)"></div>
+          <span style="color:var(--joint);font-weight:700">JOINT</span>
+          <span style="color:var(--muted)">— one instance regardless</span>
+        </div>
+        <div class="legend-row">
+          <div class="legend-chip" style="background:var(--spouse)"></div>
+          <span style="color:var(--spouse);font-weight:700">SPOUSE MIRROR</span>
+          <span style="color:var(--muted)">— woven in at phase 2</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="dot" style="background:var(--muted)"></span>
+        Edge Types
+      </div>
+      <div class="card-body">
+        <div class="legend-row">
+          <svg width="32" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="var(--adj)" stroke-width="2" marker-end="url(#arrow-adj-legend)"/><defs><marker id="arrow-adj-legend" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><polygon points="0 0,5 2.5,0 5" fill="var(--adj)"/></marker></defs></svg>
+          <span style="color:var(--adj);font-weight:700">Adjacency</span>
+          <span style="color:var(--muted)">— notify when I change</span>
+        </div>
+        <div class="legend-row">
+          <svg width="32" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="var(--dep)" stroke-width="2" stroke-dasharray="4 2" marker-end="url(#arrow-dep-legend)"/><defs><marker id="arrow-dep-legend" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><polygon points="0 0,5 2.5,0 5" fill="var(--dep)"/></marker></defs></svg>
+          <span style="color:var(--dep);font-weight:700">Dependency</span>
+          <span style="color:var(--muted)">— I need this resolved first</span>
+        </div>
+        <div class="legend-row">
+          <svg width="32" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="var(--dirty)" stroke-width="2.5" marker-end="url(#arrow-dirty-legend)"/><defs><marker id="arrow-dirty-legend" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><polygon points="0 0,5 2.5,0 5" fill="var(--dirty)"/></marker></defs></svg>
+          <span style="color:var(--dirty);font-weight:700">Dirty propagation</span>
+          <span style="color:var(--muted)">— BFS wave at runtime</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="dot" style="background:var(--muted)"></span>
+        Node Statuses
+      </div>
+      <div class="card-body">
+        <div class="legend-row"><div class="legend-chip circle" style="background:var(--clean)"></div><span style="color:var(--clean)">CLEAN</span> <span style="color:var(--muted)">— computed & current</span></div>
+        <div class="legend-row"><div class="legend-chip circle" style="background:var(--dirty)"></div><span style="color:var(--dirty)">DIRTY</span> <span style="color:var(--muted)">— needs recompute</span></div>
+        <div class="legend-row"><div class="legend-chip circle" style="background:var(--skipped)"></div><span style="color:var(--skipped)">SKIPPED</span> <span style="color:var(--muted)">— not applicable</span></div>
+        <div class="legend-row"><div class="legend-chip circle" style="background:#f59e0b"></div><span style="color:#f59e0b">OVERRIDE</span> <span style="color:var(--muted)">— preparer locked value</span></div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ════════════════════════════════════════════════════ CANVAS -->
+  <div class="canvas-area">
+
+    <!-- ═══════ PHASE 1 ═══════ -->
+    <div class="phase-panel active fade-in" id="phase-1">
+
+      <div>
+        <div class="section-label">The definition graph — built once at registerNodes()</div>
+        <div class="info-box blue">
+          <strong>What happens here:</strong> The engine reads every <code>dependencies:[...]</code> array 
+          from every NodeDefinition you registered. It builds two maps and runs Kahn's algorithm 
+          to produce a stable <code>topOrder</code>. A cycle throws immediately — before any session ever starts.
+        </div>
+      </div>
+
+      <!-- Graph -->
+      <div class="graph-wrap">
+        <div class="section-label" style="margin-bottom:16px">Definition graph — your actual nodes</div>
+        <svg class="graph" width="860" height="320" id="def-graph">
+          <defs>
+            <marker id="arrow-adj" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0,6 3,0 6" fill="var(--adj)" opacity="0.8"/>
+            </marker>
+            <marker id="arrow-dep" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0,6 3,0 6" fill="var(--dep)" opacity="0.8"/>
+            </marker>
+            <marker id="arrow-dirty" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0,6 3,0 6" fill="var(--dirty)"/>
+            </marker>
+            <marker id="arrow-scan" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0,6 3,0 6" fill="var(--phase3)"/>
+            </marker>
+          </defs>
+
+          <!-- Adjacency edges (solid orange) -->
+          <!-- line2 → line13 -->
+          <path class="edge adj" d="M 148 60 Q 200 60 230 100"/>
+          <!-- line6 → line13 -->
+          <path class="edge adj" d="M 148 110 Q 200 110 230 120"/>
+          <!-- ageInput → line13 -->
+          <path class="edge adj" d="M 148 160 Q 200 160 230 140"/>
+          <!-- line13_f8889 → sch1_line13 -->
+          <path class="edge adj" d="M 368 120 L 430 120"/>
+          <!-- sch1_line13 → sch1_line26 -->
+          <path class="edge adj" d="M 568 120 L 630 120"/>
+          <!-- sch1_line26 → f1040_line10 -->
+          <path class="edge adj" d="M 730 120 L 760 140"/>
+          <!-- line9 → f1040_line11 -->
+          <path class="edge adj" d="M 148 260 Q 500 260 760 200"/>
+          <!-- f1040_line10 → f1040_line11 -->
+          <path class="edge adj" d="M 800 165 L 800 180"/>
+          <!-- f8889_17b → sch2_line8 -->
+          <path class="edge adj" d="M 368 240 L 630 240"/>
+          <!-- sch2_line8 → sch2_line44 -->
+          <path class="edge adj" d="M 730 240 L 760 260"/>
+          <!-- sch2_line44 → f1040_line17 -->
+          <path class="edge adj" d="M 800 285 L 800 300"/>
+
+          <!-- NODES — Row 1: F8889 inputs -->
+          <g class="node-group" onclick="selectNode('f8889.primary.line2_personalContributions')">
+            <rect class="node-rect" x="10" y="40" width="138" height="38" fill="rgba(34,197,94,0.2)" stroke="rgba(34,197,94,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="55">line2_personalContrib</text>
+            <text class="node-sublabel" x="79" y="68">f8889.primary · INPUT</text>
+          </g>
+          <g class="node-group" onclick="selectNode('f8889.primary.line6_employerContributions')">
+            <rect class="node-rect" x="10" y="90" width="138" height="38" fill="rgba(34,197,94,0.2)" stroke="rgba(34,197,94,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="105">line6_employerContrib</text>
+            <text class="node-sublabel" x="79" y="118">f8889.primary · INPUT</text>
+          </g>
+          <g class="node-group" onclick="selectNode('f8889.primary.line4input_ageAsOfDec31')">
+            <rect class="node-rect" x="10" y="140" width="138" height="38" fill="rgba(34,197,94,0.2)" stroke="rgba(34,197,94,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="155">line4input_age</text>
+            <text class="node-sublabel" x="79" y="168">f8889.primary · INPUT</text>
+          </g>
+
+          <!-- F8889 Line 13 (computed) -->
+          <g class="node-group" onclick="selectNode('f8889.primary.line13_hsaDeduction')">
+            <rect class="node-rect" x="230" y="100" width="138" height="38" fill="rgba(59,130,246,0.2)" stroke="rgba(59,130,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="299" y="115">line13_hsaDeduction</text>
+            <text class="node-sublabel" x="299" y="128">f8889.primary · COMPUTED</text>
+          </g>
+
+          <!-- Schedule 1 Line 13 (joint computed) -->
+          <g class="node-group" onclick="selectNode('schedule1.joint.line13_hsaDeduction')">
+            <rect class="node-rect" x="430" y="100" width="138" height="38" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="499" y="115">line13_hsaDeduction</text>
+            <text class="node-sublabel" x="499" y="128">schedule1.joint · COMPUTED</text>
+          </g>
+
+          <!-- Schedule 1 Line 26 -->
+          <g class="node-group" onclick="selectNode('schedule1.joint.line26_totalAdjustments')">
+            <rect class="node-rect" x="630" y="100" width="138" height="38" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="699" y="115">line26_totalAdj</text>
+            <text class="node-sublabel" x="699" y="128">schedule1.joint · COMPUTED</text>
+          </g>
+
+          <!-- F8889 Line 17b -->
+          <g class="node-group" onclick="selectNode('f8889.primary.line17b_additionalTax')">
+            <rect class="node-rect" x="230" y="220" width="138" height="38" fill="rgba(59,130,246,0.2)" stroke="rgba(59,130,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="299" y="235">line17b_additionalTax</text>
+            <text class="node-sublabel" x="299" y="248">f8889.primary · COMPUTED</text>
+          </g>
+
+          <!-- Schedule 2 Line 8 -->
+          <g class="node-group" onclick="selectNode('schedule2.joint.line8_additionalRetirementTax')">
+            <rect class="node-rect" x="630" y="220" width="138" height="38" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="699" y="235">line8_addlRetirementTax</text>
+            <text class="node-sublabel" x="699" y="248">schedule2.joint · COMPUTED</text>
+          </g>
+
+          <!-- F1040 Line 9 -->
+          <g class="node-group" onclick="selectNode('f1040.joint.line9_totalIncome')">
+            <rect class="node-rect" x="10" y="240" width="138" height="38" fill="rgba(34,197,94,0.2)" stroke="rgba(34,197,94,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="255">line9_totalIncome</text>
+            <text class="node-sublabel" x="79" y="268">f1040.joint · INPUT</text>
+          </g>
+
+          <!-- F1040 Line 10 -->
+          <g class="node-group" onclick="selectNode('f1040.joint.line10_adjustmentsToIncome')">
+            <rect class="node-rect" x="760" y="130" width="90" height="38" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="805" y="145">line10_adj</text>
+            <text class="node-sublabel" x="805" y="158">f1040.joint</text>
+          </g>
+
+          <!-- F1040 Line 11 (AGI) -->
+          <g class="node-group" onclick="selectNode('f1040.joint.line11_adjustedGrossIncome')">
+            <rect class="node-rect" x="760" y="178" width="90" height="38" fill="rgba(139,92,246,0.25)" stroke="rgba(139,92,246,0.7)" stroke-width="2"/>
+            <text class="node-label" x="805" y="193" style="font-weight:700">line11_AGI</text>
+            <text class="node-sublabel" x="805" y="206">f1040.joint ★</text>
+          </g>
+
+          <!-- F1040 Line 17 -->
+          <g class="node-group" onclick="selectNode('f1040.joint.line17_additionalTaxes')">
+            <rect class="node-rect" x="760" y="245" width="90" height="38" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="805" y="260">line17_addlTax</text>
+            <text class="node-sublabel" x="805" y="273">f1040.joint</text>
+          </g>
+
+          <!-- Sch2 line 44 -->
+          <g class="node-group" onclick="selectNode('schedule2.joint.line44_totalAdditionalTaxes')">
+            <rect class="node-rect" x="760" y="245" width="90" height="38" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.5)" stroke-width="1.5" transform="translate(0,38)"/>
+            <text class="node-label" x="805" y="299">line44_totalTax</text>
+            <text class="node-sublabel" x="805" y="312">schedule2.joint</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Adjacency Map -->
+      <div>
+        <div class="section-label">Adjacency map — "who do I notify when I change?"</div>
+        <div class="map-grid">
+          <div class="card">
+            <div class="card-header"><span class="dot" style="background:var(--adj)"></span>Adjacency map (downstream)</div>
+            <div class="card-body" style="padding:0">
+              <table class="map-table">
+                <thead><tr><th>Node</th><th style="color:var(--adj)">Notifies →</th></tr></thead>
+                <tbody>
+                  <tr><td class="node-id-cell"><small>f8889.primary.</small>line2_personalContrib</td><td class="targets-cell">line13_hsaDeduction</td></tr>
+                  <tr><td class="node-id-cell"><small>f8889.primary.</small>line6_employerContrib</td><td class="targets-cell">line13_hsaDeduction</td></tr>
+                  <tr><td class="node-id-cell"><small>f8889.primary.</small>line4input_age</td><td class="targets-cell">line13_hsaDeduction</td></tr>
+                  <tr><td class="node-id-cell"><small>f8889.primary.</small>line13_hsaDeduction</td><td class="targets-cell"><small>schedule1.joint.</small>line13_hsaDeduction</td></tr>
+                  <tr><td class="node-id-cell"><small>schedule1.joint.</small>line13_hsaDeduction</td><td class="targets-cell"><small>schedule1.joint.</small>line26_totalAdj</td></tr>
+                  <tr><td class="node-id-cell"><small>schedule1.joint.</small>line26_totalAdj</td><td class="targets-cell"><small>f1040.joint.</small>line10_adjustments</td></tr>
+                  <tr><td class="node-id-cell"><small>f1040.joint.</small>line9_totalIncome</td><td class="targets-cell"><small>f1040.joint.</small>line11_AGI</td></tr>
+                  <tr><td class="node-id-cell"><small>f1040.joint.</small>line10_adjustments</td><td class="targets-cell"><small>f1040.joint.</small>line11_AGI</td></tr>
+                  <tr class="highlight"><td class="node-id-cell" style="color:var(--phase1);font-weight:700"><small>f1040.joint.</small>line11_AGI ★</td><td class="targets-cell"><span class="empty-set">{ } — terminal</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="dot" style="background:var(--dep)"></span>Dependency map (upstream)</div>
+            <div class="card-body" style="padding:0">
+              <table class="map-table">
+                <thead><tr><th>Node</th><th style="color:var(--dep)">Needs ←</th></tr></thead>
+                <tbody>
+                  <tr><td class="node-id-cell"><small>f8889.primary.</small>line2_personalContrib</td><td class="targets-cell dep"><span class="empty-set">{ } — INPUT</span></td></tr>
+                  <tr><td class="node-id-cell"><small>f8889.primary.</small>line6_employerContrib</td><td class="targets-cell dep"><span class="empty-set">{ } — INPUT</span></td></tr>
+                  <tr><td class="node-id-cell"><small>f8889.primary.</small>line13_hsaDeduction</td><td class="targets-cell dep">line2, line6, line4input_age</td></tr>
+                  <tr><td class="node-id-cell"><small>schedule1.joint.</small>line13_hsaDeduction</td><td class="targets-cell dep"><small>f8889.primary.</small>line13</td></tr>
+                  <tr><td class="node-id-cell"><small>schedule1.joint.</small>line26_totalAdj</td><td class="targets-cell dep"><small>schedule1.joint.</small>line13</td></tr>
+                  <tr><td class="node-id-cell"><small>f1040.joint.</small>line9_totalIncome</td><td class="targets-cell dep"><span class="empty-set">{ } — INPUT</span></td></tr>
+                  <tr><td class="node-id-cell"><small>f1040.joint.</small>line10_adjustments</td><td class="targets-cell dep"><small>schedule1.</small>line26</td></tr>
+                  <tr class="highlight"><td class="node-id-cell" style="color:var(--phase1);font-weight:700"><small>f1040.joint.</small>line11_AGI ★</td><td class="targets-cell dep">line9_totalIncome<br/>line10_adjustments</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kahn's Algorithm walkthrough -->
+      <div>
+        <div class="section-label">Kahn's algorithm — step by step on these nodes</div>
+        <div class="info-box blue" style="margin-bottom:14px">
+          <strong>In-degree</strong> = number of dependencies a node has. Nodes with in-degree 0 go into the queue first — they have nothing waiting on them.
+        </div>
+        <div class="kahn-steps">
+          <div class="kahn-round">
+            <div class="kahn-round-header">Initial in-degrees</div>
+            <div class="kahn-round-body">
+              <div class="kahn-node pulled">line9_totalIncome <span class="in-degree-badge">0 → queue</span></div>
+              <div class="kahn-node pulled">line2_personalContrib <span class="in-degree-badge">0 → queue</span></div>
+              <div class="kahn-node pulled">line6_employerContrib <span class="in-degree-badge">0 → queue</span></div>
+              <div class="kahn-node pulled">line4input_age <span class="in-degree-badge">0 → queue</span></div>
+              <div class="kahn-node waiting">line13_hsaDeduction <span class="in-degree-badge">in-deg 3</span></div>
+              <div class="kahn-node waiting">sched1.line13 <span class="in-degree-badge">in-deg 1</span></div>
+              <div class="kahn-node waiting">sched1.line26 <span class="in-degree-badge">in-deg 1</span></div>
+              <div class="kahn-node waiting">f1040.line10 <span class="in-degree-badge">in-deg 1</span></div>
+              <div class="kahn-node waiting">f1040.line11_AGI <span class="in-degree-badge">in-deg 2</span></div>
+            </div>
+          </div>
+          <div class="kahn-round">
+            <div class="kahn-round-header">Round 1 — pull queue (sorted alphabetically for stability)</div>
+            <div class="kahn-round-body">
+              <div class="kahn-node pulled">✓ pull: f1040.line9</div>
+              <span class="kahn-arrow">→</span>
+              <div class="kahn-node decremented">f1040.line11_AGI: 2→1</div>
+              <span style="width:100%;height:0"></span>
+              <div class="kahn-node pulled">✓ pull: line2_personalContrib</div>
+              <span class="kahn-arrow">→</span>
+              <div class="kahn-node decremented">line13_hsaDed: 3→2</div>
+              <span style="width:100%;height:0"></span>
+              <div class="kahn-node pulled">✓ pull: line4input_age</div>
+              <span class="kahn-arrow">→</span>
+              <div class="kahn-node decremented">line13_hsaDed: 2→1</div>
+              <span style="width:100%;height:0"></span>
+              <div class="kahn-node pulled">✓ pull: line6_employerContrib</div>
+              <span class="kahn-arrow">→</span>
+              <div class="kahn-node decremented">line13_hsaDed: 1→0 → <span style="color:var(--phase2)">queue!</span></div>
+            </div>
+          </div>
+          <div class="kahn-round">
+            <div class="kahn-round-header">Round 2</div>
+            <div class="kahn-round-body">
+              <div class="kahn-node pulled">✓ pull: line13_hsaDeduction</div>
+              <span class="kahn-arrow">→</span>
+              <div class="kahn-node decremented">sched1.line13: 1→0 → <span style="color:var(--phase2)">queue!</span></div>
+            </div>
+          </div>
+          <div class="kahn-round">
+            <div class="kahn-round-header">Round 3</div>
+            <div class="kahn-round-body">
+              <div class="kahn-node pulled">✓ pull: sched1.line13_hsaDeduction</div>
+              <span class="kahn-arrow">→</span>
+              <div class="kahn-node decremented">sched1.line26: 1→0 → <span style="color:var(--phase2)">queue!</span></div>
+            </div>
+          </div>
+          <div class="kahn-round">
+            <div class="kahn-round-header">Round 4</div>
+            <div class="kahn-round-body">
+              <div class="kahn-node pulled">✓ pull: sched1.line26_totalAdjustments</div>
+              <span class="kahn-arrow">→</span>
+              <div class="kahn-node decremented">f1040.line10: 1→0 → <span style="color:var(--phase2)">queue!</span></div>
+            </div>
+          </div>
+          <div class="kahn-round">
+            <div class="kahn-round-header">Round 5</div>
+            <div class="kahn-round-body">
+              <div class="kahn-node pulled">✓ pull: f1040.line10_adjustments</div>
+              <span class="kahn-arrow">→</span>
+              <div class="kahn-node decremented">f1040.line11_AGI: 1→0 → <span style="color:var(--phase2)">queue!</span></div>
+            </div>
+          </div>
+          <div class="kahn-round">
+            <div class="kahn-round-header">Round 6 — final</div>
+            <div class="kahn-round-body">
+              <div class="kahn-node pulled">✓ pull: f1040.line11_AGI</div>
+              <span class="kahn-arrow">→</span>
+              <span style="color:var(--muted)">no downstream — done</span>
+            </div>
+          </div>
+          <div class="toporder-result">
+            <span style="color:var(--muted);font-size:10px;margin-right:4px">topOrder:</span>
+            <div class="toporder-chip">f1040.line9</div>
+            <div class="toporder-chip">line2_contrib</div>
+            <div class="toporder-chip">line4_age</div>
+            <div class="toporder-chip">line6_employer</div>
+            <div class="toporder-chip">f8889.line13</div>
+            <div class="toporder-chip">sched1.line13</div>
+            <div class="toporder-chip">sched1.line26</div>
+            <div class="toporder-chip">f1040.line10</div>
+            <div class="toporder-chip">f1040.line11_AGI ★</div>
+          </div>
+          <div class="info-box blue">
+            <strong>Cycle check:</strong> topOrder.length (9) === definitions.length (9) → ✅ no cycle. 
+            If a node never reaches in-degree 0, it's stuck in a cycle. The engine throws with the node IDs involved.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ PHASE 2 ═══════ -->
+    <div class="phase-panel fade-in" id="phase-2">
+
+      <div>
+        <div class="section-label">Instance graph — built at initializeSession() with hasSpouse = true</div>
+        <div class="info-box purple">
+          <strong>What's different from Sort #1:</strong> Every node with <code>repeatable: true</code> and 
+          <code>owner: PRIMARY</code> gets a spouse mirror woven in immediately after it in topOrder. 
+          Joint nodes (schedule1, schedule2, f1040) stay as single instances. 
+          The result is stored in <code>this.instanceGraph.topOrder</code> and reused for every event in this session.
+        </div>
+      </div>
+
+      <!-- Instance graph with spouse mirrors -->
+      <div class="graph-wrap">
+        <div class="section-label" style="margin-bottom:16px">Instance graph — MFJ session (hasSpouse = true)</div>
+        <svg class="graph" width="860" height="400" id="inst-graph">
+          <!-- Primary lane label -->
+          <text x="10" y="24" style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;fill:rgba(59,130,246,0.7);letter-spacing:0.08em;text-transform:uppercase">PRIMARY LANE</text>
+          <!-- Spouse lane label -->
+          <text x="10" y="224" style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;fill:rgba(245,158,11,0.7);letter-spacing:0.08em;text-transform:uppercase">SPOUSE MIRROR LANE</text>
+          <!-- Joint label -->
+          <text x="560" y="24" style="font-family:'Syne',sans-serif;font-size:10px;font-weight:700;fill:rgba(139,92,246,0.7);letter-spacing:0.08em;text-transform:uppercase">JOINT (one instance)</text>
+
+          <!-- Divider -->
+          <line x1="0" y1="195" x2="860" y2="195" stroke="var(--border2)" stroke-width="1" stroke-dasharray="4 4"/>
+
+          <!-- Primary lane edges -->
+          <path class="edge adj" d="M 148 75 Q 195 75 230 100"/>
+          <path class="edge adj" d="M 148 100 L 230 110"/>
+          <path class="edge adj" d="M 148 130 Q 195 130 230 120"/>
+          <path class="edge adj" d="M 368 110 L 430 160"/>
+
+          <!-- Spouse lane edges -->
+          <path class="edge adj" d="M 148 265 Q 195 265 230 290"/>
+          <path class="edge adj" d="M 148 295 L 230 300"/>
+          <path class="edge adj" d="M 148 325 Q 195 325 230 310"/>
+          <path class="edge adj" d="M 368 300 L 430 170"/>
+
+          <!-- Joint aggregator edges -->
+          <path class="edge adj" d="M 568 165 L 630 165"/>
+          <path class="edge adj" d="M 730 165 L 760 195"/>
+          <path class="edge adj" d="M 148 155 Q 500 155 760 210"/>
+          <path class="edge adj" d="M 800 220 L 800 240"/>
+
+          <!-- PRIMARY NODES -->
+          <g class="node-group" onclick="selectNode('f8889.primary.line2_personalContributions')">
+            <rect class="node-rect" x="10" y="58" width="138" height="30" fill="rgba(34,197,94,0.2)" stroke="rgba(34,197,94,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="70">line2 primaryContrib</text>
+            <text class="node-sublabel" x="79" y="80">f8889.primary · INPUT</text>
+          </g>
+          <g class="node-group" onclick="selectNode('f8889.primary.line6_employerContributions')">
+            <rect class="node-rect" x="10" y="90" width="138" height="30" fill="rgba(34,197,94,0.2)" stroke="rgba(34,197,94,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="102">line6 employer</text>
+            <text class="node-sublabel" x="79" y="112">f8889.primary · INPUT</text>
+          </g>
+          <g class="node-group" onclick="selectNode('f8889.primary.line4input_ageAsOfDec31')">
+            <rect class="node-rect" x="10" y="122" width="138" height="30" fill="rgba(34,197,94,0.2)" stroke="rgba(34,197,94,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="134">line4input age</text>
+            <text class="node-sublabel" x="79" y="144">f8889.primary · INPUT</text>
+          </g>
+          <g class="node-group" onclick="selectNode('f8889.primary.line13_hsaDeduction')">
+            <rect class="node-rect" x="230" y="93" width="138" height="34" fill="rgba(59,130,246,0.2)" stroke="rgba(59,130,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="299" y="106">line13_hsaDeduction</text>
+            <text class="node-sublabel" x="299" y="118">f8889.primary · COMPUTED</text>
+          </g>
+
+          <!-- F1040 line9 (joint input) -->
+          <g class="node-group" onclick="selectNode('f1040.joint.line9_totalIncome')">
+            <rect class="node-rect" x="10" y="144" width="138" height="30" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.4)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="156">line9_totalIncome</text>
+            <text class="node-sublabel" x="79" y="166">f1040.joint · INPUT</text>
+          </g>
+
+          <!-- SPOUSE MIRROR NODES -->
+          <g class="node-group" onclick="selectNode('f8889.spouse.line2_personalContributions')">
+            <rect class="node-rect" x="10" y="248" width="138" height="30" fill="rgba(245,158,11,0.2)" stroke="rgba(245,158,11,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="260">line2 spouseContrib</text>
+            <text class="node-sublabel" x="79" y="270">f8889.spouse · INPUT</text>
+          </g>
+          <g class="node-group" onclick="selectNode('f8889.spouse.line6_employerContributions')">
+            <rect class="node-rect" x="10" y="281" width="138" height="30" fill="rgba(245,158,11,0.2)" stroke="rgba(245,158,11,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="293">line6 spouseEmployer</text>
+            <text class="node-sublabel" x="79" y="303">f8889.spouse · INPUT</text>
+          </g>
+          <g class="node-group" onclick="selectNode('f8889.spouse.line4input_ageAsOfDec31')">
+            <rect class="node-rect" x="10" y="314" width="138" height="30" fill="rgba(245,158,11,0.2)" stroke="rgba(245,158,11,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="79" y="326">line4input spouseAge</text>
+            <text class="node-sublabel" x="79" y="336">f8889.spouse · INPUT</text>
+          </g>
+          <g class="node-group" onclick="selectNode('f8889.spouse.line13_hsaDeduction')">
+            <rect class="node-rect" x="230" y="283" width="138" height="34" fill="rgba(245,158,11,0.2)" stroke="rgba(245,158,11,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="299" y="296">line13_hsaDeduction</text>
+            <text class="node-sublabel" x="299" y="308">f8889.spouse · MIRROR</text>
+          </g>
+          <text x="243" y="283" class="node-badge" style="fill:var(--spouse)" dy="-4">SPOUSE</text>
+
+          <!-- JOINT AGGREGATOR -->
+          <g class="node-group" onclick="selectNode('schedule1.joint.line13_hsaDeduction')">
+            <rect class="node-rect" x="430" y="147" width="138" height="38" fill="rgba(139,92,246,0.25)" stroke="rgba(139,92,246,0.7)" stroke-width="2"/>
+            <text class="node-label" x="499" y="162">line13_hsaDeduction</text>
+            <text class="node-sublabel" x="499" y="174">schedule1.joint · AGGREGATOR</text>
+          </g>
+          <text x="430" y="147" class="node-badge" style="fill:var(--phase2)" dy="-4" dx="5">JOINT AGG: primary + spouse</text>
+
+          <!-- sched1.line26 -->
+          <g class="node-group" onclick="selectNode('schedule1.joint.line26_totalAdjustments')">
+            <rect class="node-rect" x="630" y="147" width="120" height="38" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="690" y="162">line26_totalAdj</text>
+            <text class="node-sublabel" x="690" y="174">schedule1.joint</text>
+          </g>
+
+          <!-- f1040.line10 -->
+          <g class="node-group" onclick="selectNode('f1040.joint.line10_adjustmentsToIncome')">
+            <rect class="node-rect" x="760" y="183" width="90" height="30" fill="rgba(139,92,246,0.2)" stroke="rgba(139,92,246,0.5)" stroke-width="1.5"/>
+            <text class="node-label" x="805" y="196">line10_adj</text>
+            <text class="node-sublabel" x="805" y="206">f1040.joint</text>
+          </g>
+
+          <!-- f1040.line11 AGI -->
+          <g class="node-group" onclick="selectNode('f1040.joint.line11_adjustedGrossIncome')">
+            <rect class="node-rect" x="760" y="228" width="90" height="34" fill="rgba(139,92,246,0.3)" stroke="rgba(139,92,246,0.8)" stroke-width="2.5"/>
+            <text class="node-label" x="805" y="242" style="font-weight:700">line11_AGI</text>
+            <text class="node-sublabel" x="805" y="254">f1040.joint ★</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- topOrder with spouse mirrors woven in -->
+      <div>
+        <div class="section-label">Resulting instanceGraph.topOrder — spouse mirrors woven in immediately after primary</div>
+        <div class="toporder-result" style="gap:6px">
+          <div class="toporder-chip">f1040.line9</div>
+          <span class="toporder-arrow">→</span>
+          <div class="toporder-chip">f8889.p.line2</div>
+          <div class="toporder-chip spouse">f8889.sp.line2 ✦</div>
+          <span class="toporder-arrow">→</span>
+          <div class="toporder-chip">f8889.p.line4</div>
+          <div class="toporder-chip spouse">f8889.sp.line4 ✦</div>
+          <span class="toporder-arrow">→</span>
+          <div class="toporder-chip">f8889.p.line6</div>
+          <div class="toporder-chip spouse">f8889.sp.line6 ✦</div>
+          <span class="toporder-arrow">→</span>
+          <div class="toporder-chip">f8889.p.line13</div>
+          <div class="toporder-chip spouse">f8889.sp.line13 ✦</div>
+          <span class="toporder-arrow">→</span>
+          <div class="toporder-chip">sched1.line13 (joint agg)</div>
+          <span class="toporder-arrow">→</span>
+          <div class="toporder-chip">sched1.line26</div>
+          <span class="toporder-arrow">→</span>
+          <div class="toporder-chip">f1040.line10</div>
+          <span class="toporder-arrow">→</span>
+          <div class="toporder-chip">f1040.line11_AGI ★</div>
+        </div>
+        <div style="margin-top:10px" class="info-box purple">
+          <strong>✦ Spouse mirrors</strong> use the same <code>compute()</code> function as primary but with a remapped 
+          <code>ComputeContext</code>: any <code>ctx.get('...primary...')</code> call is silently redirected to <code>...spouse...</code>. 
+          The joint aggregator at <code>schedule1.joint.line13</code> depends on <em>both</em> <code>f8889.primary.line13</code> and <code>f8889.spouse.line13</code>.
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ PHASE 3 ═══════ -->
+    <div class="phase-panel fade-in" id="phase-3">
+
+      <div>
+        <div class="section-label">Runtime — process() — no sorting, just a linear scan</div>
+        <div class="info-box green">
+          <strong>The key insight:</strong> <code>process()</code> never sorts. It just walks the cached 
+          <code>instanceGraph.topOrder</code> and skips anything that isn't DIRTY. 
+          You paid the sort cost once. Runtime is O(n) where n = number of DIRTY nodes, not all nodes.
+        </div>
+      </div>
+
+      <!-- Scenario: preparer changes spouse HSA contribution -->
+      <div>
+        <div class="section-label">Scenario — preparer sets spouse HSA contribution to $4,300</div>
+        <div class="controls" style="margin-bottom:16px">
+          <button class="btn primary" onclick="runRuntimeDemo()">▶ Run step by step</button>
+          <button class="btn" onclick="resetRuntime()">↺ Reset</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <!-- Stepper -->
+        <div class="card">
+          <div class="card-header"><span class="dot" style="background:var(--phase3)"></span>Steps</div>
+          <div class="card-body" style="padding:10px">
+            <div class="stepper" id="runtime-stepper">
+              <div class="step active" id="step-0">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                  <div class="step-title">Validate the event</div>
+                  <div class="step-desc">Check instanceId exists in spouseInstances map or definitions. Resolve <code>f8889.spouse.line2</code> → primary def. Check allowNegative, type, enum.</div>
+                  <div class="step-code">engine.validate({ instanceId: 'f8889.spouse.line2', value: 4300 })<br/>→ { valid: true, errors: [] }</div>
+                </div>
+              </div>
+              <div class="step" id="step-1">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                  <div class="step-title">Apply input event</div>
+                  <div class="step-desc">Set <code>f8889.spouse.line2</code> to CLEAN with value 4300. Record before/after NodeChange.</div>
+                  <div class="step-code">state['f8889.spouse.line2'] = { value: 4300, status: CLEAN }</div>
+                </div>
+              </div>
+              <div class="step" id="step-2">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                  <div class="step-title">BFS propagate DIRTY</div>
+                  <div class="step-desc">Start BFS from <code>f8889.spouse.line2</code>. Walk adjacency map. Mark every downstream node DIRTY.</div>
+                  <div class="step-code">DIRTY: f8889.spouse.line13<br/>DIRTY: schedule1.joint.line13<br/>DIRTY: schedule1.joint.line26<br/>DIRTY: f1040.joint.line10<br/>DIRTY: f1040.joint.line11_AGI</div>
+                </div>
+              </div>
+              <div class="step" id="step-3">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                  <div class="step-title">Walk topOrder — skip non-DIRTY</div>
+                  <div class="step-desc">Iterate <code>instanceGraph.topOrder</code>. Skip every node that isn't DIRTY. Compute the 5 dirty nodes in guaranteed correct order.</div>
+                  <div class="step-code" id="scan-log">Scanning topOrder...</div>
+                </div>
+              </div>
+              <div class="step" id="step-4">
+                <div class="step-num">5</div>
+                <div class="step-content">
+                  <div class="step-title">Return EngineResult</div>
+                  <div class="step-desc">Immutable result with updated currentState, TraceFrame with before/after for all 5 changed nodes, and updated summary.</div>
+                  <div class="step-code">AGI: $200,000 - ($4,300 + $4,300) = $191,400<br/>frame.changes: 5 nodes<br/>frame.visitOrder: [sp.line13, sched1.line13, ...]</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- State board -->
+        <div class="card">
+          <div class="card-header"><span class="dot" style="background:var(--phase3)"></span>Node State Board</div>
+          <div class="card-body" style="padding:0">
+            <table class="map-table" id="state-board">
+              <thead><tr><th>Node</th><th>Value</th><th>Status</th></tr></thead>
+              <tbody id="state-rows">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- What topOrder scan looks like -->
+      <div>
+        <div class="section-label">What the topOrder scan looks like — each node checked in sequence</div>
+        <div class="card">
+          <div class="card-header"><span class="dot" style="background:var(--phase3)"></span>topOrder walk — O(n) linear scan</div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:6px" id="scan-visual">
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+
+const NODE_DATA = {
+  'f8889.primary.line2_personalContributions': {
+    kind: 'INPUT', owner: 'primary', form: 'f8889',
+    label: 'Line 2 — Personal HSA Contributions',
+    deps: [], notifies: ['f8889.primary.line13_hsaDeduction'],
+    defaultValue: 0, repeatable: true,
+    desc: 'Employee HSA contributions for the year. Cap = annual limit minus employer contributions.'
+  },
+  'f8889.primary.line6_employerContributions': {
+    kind: 'INPUT', owner: 'primary', form: 'f8889',
+    label: 'Line 6 — Employer HSA Contributions',
+    deps: [], notifies: ['f8889.primary.line13_hsaDeduction'],
+    defaultValue: 0, repeatable: true,
+    desc: 'Employer-paid HSA contributions. These reduce the personal contribution limit.'
+  },
+  'f8889.primary.line4input_ageAsOfDec31': {
+    kind: 'INPUT', owner: 'primary', form: 'f8889',
+    label: 'Line 4 Input — Age as of Dec 31',
+    deps: [], notifies: ['f8889.primary.line13_hsaDeduction'],
+    defaultValue: 0, repeatable: true,
+    desc: 'Age on December 31 of tax year. Determines catch-up contribution eligibility (age ≥ 55).'
+  },
+  'f8889.primary.line13_hsaDeduction': {
+    kind: 'COMPUTED', owner: 'primary', form: 'f8889',
+    label: 'Line 13 — HSA Deduction',
+    deps: ['f8889.primary.line2_personalContributions','f8889.primary.line6_employerContributions','f8889.primary.line4input_ageAsOfDec31'],
+    notifies: ['schedule1.joint.line13_hsaDeduction'],
+    defaultValue: null, repeatable: true,
+    desc: 'Deductible HSA contributions. min(personalContributions, annualLimit - employerContributions). Catch-up: +$1,000 if age ≥ 55.'
+  },
+  'f8889.primary.line17b_additionalTax': {
+    kind: 'COMPUTED', owner: 'primary', form: 'f8889',
+    label: 'Line 17b — Additional Tax (Non-Qualified Distribution)',
+    deps: ['f8889.primary.line17a_nonQualifiedDistributions'],
+    notifies: ['schedule2.joint.line17b_hsaDistributionTax'],
+    defaultValue: null, repeatable: true,
+    desc: 'Non-qualified HSA distributions are subject to 20% additional tax per IRC §223(f)(4).'
+  },
+  'f8889.spouse.line2_personalContributions': {
+    kind: 'INPUT', owner: 'spouse', form: 'f8889',
+    label: 'Line 2 — Spouse Personal HSA Contributions',
+    deps: [], notifies: ['f8889.spouse.line13_hsaDeduction'],
+    defaultValue: 0, repeatable: true,
+    desc: 'SPOUSE MIRROR: same definition as primary, compute context remapped to .spouse. instance IDs.'
+  },
+  'f8889.spouse.line13_hsaDeduction': {
+    kind: 'COMPUTED', owner: 'spouse', form: 'f8889',
+    label: 'Line 13 — Spouse HSA Deduction (mirror)',
+    deps: ['f8889.spouse.line2_personalContributions','f8889.spouse.line6_employerContributions','f8889.spouse.line4input_ageAsOfDec31'],
+    notifies: ['schedule1.joint.line13_hsaDeduction'],
+    defaultValue: null, repeatable: true,
+    desc: 'Same compute() as primary but ComputeContext remaps ctx.get("...primary...") → ctx.get("...spouse...").'
+  },
+  'schedule1.joint.line13_hsaDeduction': {
+    kind: 'COMPUTED', owner: 'joint', form: 'schedule1',
+    label: 'Schedule 1 Line 13 — HSA Deduction (aggregator)',
+    deps: ['f8889.primary.line13_hsaDeduction','f8889.spouse.line13_hsaDeduction'],
+    notifies: ['schedule1.joint.line26_totalAdjustments'],
+    defaultValue: null, repeatable: false,
+    desc: 'JOINT AGGREGATOR: primary.line13 + spouse.line13. In MFJ, both filers HSA deductions sum here before flowing to AGI.'
+  },
+  'schedule1.joint.line26_totalAdjustments': {
+    kind: 'COMPUTED', owner: 'joint', form: 'schedule1',
+    label: 'Schedule 1 Line 26 — Total Adjustments',
+    deps: ['schedule1.joint.line13_hsaDeduction'],
+    notifies: ['f1040.joint.line10_adjustmentsToIncome'],
+    defaultValue: null, repeatable: false,
+    desc: 'Sum of all above-the-line deductions on Schedule 1. Currently includes HSA deduction. Student loan interest, IRA, SE tax deferred.'
+  },
+  'f1040.joint.line9_totalIncome': {
+    kind: 'INPUT', owner: 'joint', form: 'f1040',
+    label: 'Form 1040 Line 9 — Total Income',
+    deps: [], notifies: ['f1040.joint.line11_adjustedGrossIncome'],
+    defaultValue: 0, repeatable: false,
+    desc: 'Total income before adjustments. Will become COMPUTED when W-2, Schedule B, etc. are implemented.'
+  },
+  'f1040.joint.line10_adjustmentsToIncome': {
+    kind: 'COMPUTED', owner: 'joint', form: 'f1040',
+    label: 'Form 1040 Line 10 — Adjustments to Income',
+    deps: ['schedule1.joint.line26_totalAdjustments'],
+    notifies: ['f1040.joint.line11_adjustedGrossIncome'],
+    defaultValue: null, repeatable: false,
+    desc: 'Pass-through from Schedule 1 Line 26. Above-the-line deductions that reduce gross income to AGI.'
+  },
+  'f1040.joint.line11_adjustedGrossIncome': {
+    kind: 'COMPUTED', owner: 'joint', form: 'f1040',
+    label: 'Form 1040 Line 11 — Adjusted Gross Income (AGI) ★',
+    deps: ['f1040.joint.line9_totalIncome','f1040.joint.line10_adjustmentsToIncome'],
+    notifies: [],
+    defaultValue: null, repeatable: false,
+    desc: 'AGI = Line 9 − Line 10. Cannot go below 0. Foundation for credit phase-outs, itemized deduction floors, IRA eligibility, and state returns.'
+  },
+};
+
+// ─── PHASE SWITCHING ────────────────────────────────────────────────────────
+
+function showPhase(n) {
+  document.querySelectorAll('.phase-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.phase-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.phase-tab[data-phase="${n}"]`).classList.add('active');
+  const panel = document.getElementById(`phase-${n}`);
+  panel.classList.add('active','fade-in');
+  setTimeout(() => panel.classList.remove('fade-in'), 400);
+  if (n === 3) initRuntimeDemo();
+}
+
+// ─── NODE DETAIL ─────────────────────────────────────────────────────────────
+
+function selectNode(id) {
+  const n = NODE_DATA[id];
+  if (!n) return;
+  const kindClass = n.kind === 'INPUT' ? 'input' : 'computed';
+  const ownerColor = n.owner === 'joint' ? 'var(--joint)' : n.owner === 'spouse' ? 'var(--spouse)' : 'var(--phase1)';
+  document.getElementById('node-detail').innerHTML = `
+    <div class="detail-row"><span class="detail-label">ID</span><span class="detail-value" style="font-size:9px">${id}</span></div>
+    <div class="detail-row"><span class="detail-label">Label</span><span class="detail-value">${n.label}</span></div>
+    <div class="detail-row"><span class="detail-label">Kind</span><span class="tag ${kindClass}">${n.kind}</span></div>
+    <div class="detail-row"><span class="detail-label">Owner</span><span class="detail-value" style="color:${ownerColor};font-weight:700">${n.owner.toUpperCase()}</span></div>
+    <div class="detail-row"><span class="detail-label">Repeatable</span><span class="detail-value">${n.repeatable ? '✓ yes — gets spouse mirror' : '✗ no'}</span></div>
+    <div class="detail-row"><span class="detail-label">Default</span><span class="detail-value">${n.defaultValue ?? 'null'}</span></div>
+    <div class="detail-row"><span class="detail-label">Deps (upstream)</span><span class="detail-value" style="color:var(--dep);font-size:9px">${n.deps.length ? n.deps.map(d=>d.split('.').slice(-1)[0]).join(', ') : '∅ — INPUT'}</span></div>
+    <div class="detail-row"><span class="detail-label">Notifies (downstream)</span><span class="detail-value" style="color:var(--adj);font-size:9px">${n.notifies.length ? n.notifies.map(d=>d.split('.').slice(-1)[0]).join(', ') : '∅ — terminal'}</span></div>
+    <div style="margin-top:10px;color:var(--muted);font-size:10px;line-height:1.6">${n.desc}</div>
+  `;
+}
+
+// ─── RUNTIME DEMO ─────────────────────────────────────────────────────────────
+
+const INIT_STATE = {
+  'f8889.primary.line2_personalContributions': { value: 4300, status: 'CLEAN' },
+  'f8889.primary.line6_employerContributions': { value: 0, status: 'CLEAN' },
+  'f8889.primary.line4input_ageAsOfDec31':     { value: 45, status: 'CLEAN' },
+  'f8889.primary.line13_hsaDeduction':         { value: 4300, status: 'CLEAN' },
+  'f8889.spouse.line2_personalContributions':  { value: 0, status: 'CLEAN' },
+  'f8889.spouse.line6_employerContributions':  { value: 0, status: 'CLEAN' },
+  'f8889.spouse.line4input_ageAsOfDec31':      { value: 38, status: 'CLEAN' },
+  'f8889.spouse.line13_hsaDeduction':          { value: 0, status: 'CLEAN' },
+  'schedule1.joint.line13_hsaDeduction':       { value: 4300, status: 'CLEAN' },
+  'schedule1.joint.line26_totalAdjustments':   { value: 4300, status: 'CLEAN' },
+  'f1040.joint.line9_totalIncome':             { value: 200000, status: 'CLEAN' },
+  'f1040.joint.line10_adjustmentsToIncome':    { value: 4300, status: 'CLEAN' },
+  'f1040.joint.line11_adjustedGrossIncome':    { value: 195700, status: 'CLEAN' },
+};
+
+const SHORT = {
+  'f8889.primary.line2_personalContributions': 'f8889.p.line2_contrib',
+  'f8889.primary.line6_employerContributions': 'f8889.p.line6_employer',
+  'f8889.primary.line4input_ageAsOfDec31':     'f8889.p.line4_age',
+  'f8889.primary.line13_hsaDeduction':         'f8889.p.line13_hsaDed',
+  'f8889.spouse.line2_personalContributions':  'f8889.sp.line2_contrib ★',
+  'f8889.spouse.line6_employerContributions':  'f8889.sp.line6_employer',
+  'f8889.spouse.line4input_ageAsOfDec31':      'f8889.sp.line4_age',
+  'f8889.spouse.line13_hsaDeduction':          'f8889.sp.line13_hsaDed',
+  'schedule1.joint.line13_hsaDeduction':       'sched1.line13_hsaDed',
+  'schedule1.joint.line26_totalAdjustments':   'sched1.line26_totalAdj',
+  'f1040.joint.line9_totalIncome':             'f1040.line9_income',
+  'f1040.joint.line10_adjustmentsToIncome':    'f1040.line10_adj',
+  'f1040.joint.line11_adjustedGrossIncome':    'f1040.line11_AGI ★★',
+};
+
+const TOP_ORDER = [
+  'f1040.joint.line9_totalIncome',
+  'f8889.primary.line2_personalContributions',
+  'f8889.spouse.line2_personalContributions',
+  'f8889.primary.line4input_ageAsOfDec31',
+  'f8889.spouse.line4input_ageAsOfDec31',
+  'f8889.primary.line6_employerContributions',
+  'f8889.spouse.line6_employerContributions',
+  'f8889.primary.line13_hsaDeduction',
+  'f8889.spouse.line13_hsaDeduction',
+  'schedule1.joint.line13_hsaDeduction',
+  'schedule1.joint.line26_totalAdjustments',
+  'f1040.joint.line10_adjustmentsToIncome',
+  'f1040.joint.line11_adjustedGrossIncome',
+];
+
+const DIRTY_NODES = new Set([
+  'f8889.spouse.line13_hsaDeduction',
+  'schedule1.joint.line13_hsaDeduction',
+  'schedule1.joint.line26_totalAdjustments',
+  'f1040.joint.line10_adjustmentsToIncome',
+  'f1040.joint.line11_adjustedGrossIncome',
+]);
+
+let currentStep = -1;
+let demoRunning = false;
+
+function initRuntimeDemo() {
+  renderStateBoard(INIT_STATE);
+  buildScanVisual();
+  currentStep = -1;
+  resetSteps();
+}
+
+function renderStateBoard(state) {
+  const tbody = document.getElementById('state-rows');
+  tbody.innerHTML = Object.entries(state).map(([id, s]) => {
+    const short = SHORT[id] || id.split('.').slice(-1)[0];
+    const isDirty = DIRTY_NODES.has(id);
+    const statusColor = s.status === 'CLEAN' ? 'var(--clean)' :
+                        s.status === 'DIRTY' ? 'var(--dirty)' :
+                        s.status === 'SKIPPED' ? 'var(--skipped)' : 'var(--text)';
+    const isSpouse = id.includes('.spouse.');
+    const rowStyle = isSpouse ? 'background:rgba(245,158,11,0.04)' : '';
+    return `<tr id="row-${id.replace(/\./g,'_')}" style="${rowStyle}">
+      <td class="node-id-cell" style="font-size:9px">${short}</td>
+      <td class="node-id-cell" style="font-size:10px;color:var(--text);text-align:right">
+        ${s.value !== null ? '$' + s.value.toLocaleString() : '—'}
+      </td>
+      <td><span class="tag" style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;font-size:9px">${s.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function buildScanVisual() {
+  const container = document.getElementById('scan-visual');
+  container.innerHTML = TOP_ORDER.map((id, i) => {
+    const isDirty = DIRTY_NODES.has(id);
+    const short = SHORT[id] || id;
+    const isChanged = id === 'f8889.spouse.line2_personalContributions';
+    return `<div id="scan-${i}" style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface);opacity:0.4;transition:all 0.3s">
+      <span style="font-size:9px;color:var(--muted);width:16px;text-align:right;flex-shrink:0">${i+1}</span>
+      <span style="font-size:10px;flex:1;${isDirty ? 'color:var(--dirty)' : isChanged ? 'color:var(--phase3)' : 'color:var(--muted)'}">
+        ${short}
+      </span>
+      <span id="scan-result-${i}" style="font-size:9px;color:var(--muted)">—</span>
+    </div>`;
+  }).join('');
+}
+
+function resetSteps() {
+  document.querySelectorAll('.step').forEach((el,i) => {
+    el.classList.remove('active','done');
+    if (i===0) el.classList.add('active');
+  });
+  document.getElementById('scan-log').textContent = 'Scanning topOrder...';
+  buildScanVisual();
+  // reset state board
+  renderStateBoard(INIT_STATE);
+}
+
+function resetRuntime() {
+  currentStep = -1;
+  demoRunning = false;
+  resetSteps();
+}
+
+async function runRuntimeDemo() {
+  if (demoRunning) return;
+  demoRunning = true;
+  resetRuntime();
+  demoRunning = true;
+
+  const steps = document.querySelectorAll('.step');
+
+  // Step 1: validate
+  await delay(400);
+  activateStep(0);
+  await delay(900);
+
+  // Step 2: apply
+  activateStep(1);
+  // Update spouse line2 value in board
+  updateRow('f8889.spouse.line2_personalContributions', { value: 4300, status: 'CLEAN' }, true);
+  await delay(900);
+
+  // Step 3: dirty propagation
+  activateStep(2);
+  for (const id of DIRTY_NODES) {
+    await delay(200);
+    updateRow(id, { ...INIT_STATE[id], status: 'DIRTY' }, true);
+    highlightRow(id, 'var(--dirty)');
+  }
+  await delay(600);
+
+  // Step 4: scan
+  activateStep(3);
+  const scanLog = document.getElementById('scan-log');
+  const computedValues = {
+    'f8889.spouse.line13_hsaDeduction':        4300,
+    'schedule1.joint.line13_hsaDeduction':     8600,
+    'schedule1.joint.line26_totalAdjustments': 8600,
+    'f1040.joint.line10_adjustmentsToIncome':  8600,
+    'f1040.joint.line11_adjustedGrossIncome':  191400,
+  };
+
+  for (let i = 0; i < TOP_ORDER.length; i++) {
+    const id = TOP_ORDER[i];
+    const scanEl = document.getElementById(`scan-${i}`);
+    const resultEl = document.getElementById(`scan-result-${i}`);
+    scanEl.style.opacity = '1';
+    scanEl.style.background = 'rgba(34,197,94,0.04)';
+    scanEl.style.borderColor = 'rgba(34,197,94,0.2)';
+    await delay(120);
+
+    if (DIRTY_NODES.has(id)) {
+      scanEl.style.background = 'rgba(59,130,246,0.1)';
+      scanEl.style.borderColor = 'var(--phase1)';
+      resultEl.style.color = 'var(--phase3)';
+      resultEl.textContent = `→ compute() = $${computedValues[id].toLocaleString()}`;
+      scanLog.textContent = `Computing: ${SHORT[id]}...`;
+      await delay(300);
+      updateRow(id, { value: computedValues[id], status: 'CLEAN' }, false);
+      highlightRow(id, 'var(--phase3)');
+    } else {
+      resultEl.style.color = 'var(--skipped)';
+      resultEl.textContent = 'skip (not DIRTY)';
+      scanEl.style.opacity = '0.55';
+    }
+  }
+  scanLog.textContent = 'Done — 5 nodes recomputed, 8 skipped';
+  await delay(400);
+
+  // Step 5: result
+  activateStep(4);
+  demoRunning = false;
+}
+
+function activateStep(n) {
+  document.querySelectorAll('.step').forEach((el, i) => {
+    el.classList.remove('active');
+    if (i < n) el.classList.add('done');
+  });
+  document.querySelectorAll('.step')[n].classList.add('active');
+}
+
+function updateRow(id, snap, flash) {
+  const rowId = 'row-' + id.replace(/\./g,'_');
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  const statusColor = snap.status === 'CLEAN' ? 'var(--clean)' : 'var(--dirty)';
+  const tds = row.querySelectorAll('td');
+  tds[1].textContent = snap.value !== null ? '$' + snap.value.toLocaleString() : '—';
+  tds[2].innerHTML = `<span class="tag" style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44;font-size:9px">${snap.status}</span>`;
+  if (flash) {
+    row.style.transition = 'background 0.1s';
+    row.style.background = 'rgba(239,68,68,0.15)';
+    setTimeout(() => { row.style.background = ''; }, 400);
+  }
+}
+
+function highlightRow(id, color) {
+  const rowId = 'row-' + id.replace(/\./g,'_');
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  row.style.background = color.replace(')', ',0.12)').replace('var(', 'rgba(').replace('--clean','34,197,94').replace('--dirty','239,68,68').replace('--phase3','34,197,94').replace('--phase1','59,130,246') + ')';
+  setTimeout(() => { row.style.background = ''; }, 600);
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+initRuntimeDemo();
+</script>
+</body>
+</html>

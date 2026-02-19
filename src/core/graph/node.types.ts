@@ -185,38 +185,38 @@ export interface BaseNodeDefinition {
    * Format: {formId}.{owner}.{lineId}
    * Never changes once the codebase ships — downstream consumers depend on it.
    */
-  id: NodeId
+  id: NodeId;
 
   /**
    * Human-readable label shown in the UI and trace viewer.
    * Example: "Form 8889 Line 13 — HSA Deduction"
    */
-  label: string
+  label: string;
 
   /**
    * Short description of what this node represents.
    * Shown as a tooltip in the preparer UI.
    */
-  description: string
+  description: string;
 
   /**
    * The data type of this node's value.
    * Drives input validation and UI rendering.
    */
-  valueType: NodeValueType
+  valueType: NodeValueType;
 
   /**
    * Whether negative values are valid for this node.
    * Default: false. Losses and carrybacks are the exception, not the rule.
    */
-  allowNegative?: boolean
+  allowNegative?: boolean;
 
   /**
    * Who owns this node's value.
    * For REPEATABLE nodes this is the default — the session overrides
    * it when instantiating the spouse copy.
    */
-  owner: NodeOwner
+  owner: NodeOwner;
 
   /**
    * When true, the session creates one instance per filer (primary + spouse)
@@ -225,7 +225,7 @@ export interface BaseNodeDefinition {
    * Only meaningful when owner is NodeOwner.PRIMARY or NodeOwner.SPOUSE.
    * Joint nodes are never repeatable.
    */
-  repeatable?: boolean
+  repeatable?: boolean;
 
   /**
    * Tax years this node is valid for.
@@ -237,9 +237,10 @@ export interface BaseNodeDefinition {
    * with a new ID and set applicableTaxYears on the old one to exclude
    * the year it changed. No deletion — retirement only.
    */
-  applicableTaxYears: string[]
+  applicableTaxYears: string[];
 
   /**
+   * EDUCATIONAL
    * Classification tags describing what kind of tax concept this node
    * represents. A node can have multiple classifications.
    *
@@ -249,24 +250,27 @@ export interface BaseNodeDefinition {
    * Defined in classification.types.ts — kept separate to allow
    * localization and UI changes without touching node logic.
    */
-  classifications: NodeClassificationTag[]
+  classifications: NodeClassificationTag[];
 
   /**
+   * REMOVE????? SINCE WE ALREADY HAVE THE LINE AND THE NAME OF THE FORM
    * IRS citation for this node — form number, line number, and
    * optionally the IRC section that governs it.
    *
    * Example: { form: 'f8889', line: '13', ircSection: '223' }
    */
-  irsCitation: IRSCitation
+  irsCitation: IRSCitation;
 
   /**
+   * MAYBE NOT NEEDED
    * Optional: node IDs that must be resolved before this node
    * is considered for display in the preparer UI.
    *
    * Different from computed dependencies — these are UI prerequisites.
    * Example: HSA nodes should not show until coverage type is answered.
+   *
    */
-  displayPrerequisites?: NodeId[]
+  displayPrerequisites?: NodeId[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

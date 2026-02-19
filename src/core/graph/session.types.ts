@@ -1,6 +1,31 @@
+// THIS IS NOT BEING USED YET, BUT WE WILL USE IT FOR THE FOLLOWING
+
+// What session.types.ts is for (future architecture)
+// This is for when you move to:
+// Lambda persistence
+// DynamoDB storage
+// multi-step prep sessions
+// WebSocket updates
+// audit trail
+// resume later
+// multi-filer identity
+// UI dashboards
+
 /**
  * PAISATAX — SESSION TYPE INTERFACES
- *
+ * 
+ * The container that hold the entire graph run ( values + status + who the filers are
+ * + audit trial ), so you can save/load/replay a tax return session. 
+  * 
+  * 
+  * 1) Persisting a return
+  - When a user works on 2025 taxes, you need to store:
+  - every node value (inputs + computed)
+  - which nodes are dirty / skipped / unsupported / overridden
+  - context (taxYear, filingStatus, hasSpouse)
+  - identity (primary + spouse info)
+  - event history (what inputs were entered, in what order)
+
  * A session represents one taxpayer's return for one tax year.
  * It holds the current state of every node in the graph, the identity
  * of the filers, and the full execution trace.
@@ -14,8 +39,8 @@
  *   - Imports only from node.types and engine.types within core
  */
 
-import type { NodeInstanceId, NodeSnapshot, NodeOwner } from './node.types.js';
-import type { ExecutionTrace, InputEvent } from './engine.types.js';
+import type { NodeInstanceId, NodeSnapshot, NodeOwner } from "./node.types.js";
+import type { ExecutionTrace, InputEvent } from "./engine.types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILER IDENTITY
@@ -34,44 +59,44 @@ export interface FilerIdentity {
   /**
    * Internal user ID — used to key the session in storage.
    */
-  userId:       string
+  userId: string;
 
   /**
    * Display name for the preparer UI.
    * Example: 'Maria Garcia' or 'John Garcia (Spouse)'
    */
-  displayName:  string
+  displayName: string;
 
   /**
    * Date of birth in YYYY-MM-DD format.
    * Used by the engine to compute age-dependent node behavior
    * (catch-up contributions, age 59½ distributions, RMD age 73, etc.)
    */
-  dateOfBirth:  string
+  dateOfBirth: string;
 
   /**
    * Social Security Number or ITIN.
    * Stored here for form header population only — never used in calculations.
    */
-  taxId:        string
+  taxId: string;
 
   /**
    * Whether this filer is a U.S. citizen or resident alien.
    * Determines which form set applies (1040 vs 1040-NR).
    */
-  residencyStatus: 'resident' | 'nonresident' | 'dual_status'
+  residencyStatus: "resident" | "nonresident" | "dual_status";
 
   /**
    * Whether this filer was blind at the end of the tax year.
    * Affects standard deduction calculation.
    */
-  isBlind:      boolean
+  isBlind: boolean;
 
   /**
    * Whether this filer can be claimed as a dependent by another taxpayer.
    * Affects standard deduction and certain credits.
    */
-  isDependent:  boolean
+  isDependent: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,7 +116,7 @@ export interface SessionContext {
    * Used by compute functions to look up year-specific constants.
    * Example: '2025'
    */
-  taxYear:      string
+  taxYear: string;
 
   /**
    * Filing status for this return.
@@ -104,32 +129,32 @@ export interface SessionContext {
    *               'married_filing_separately' | 'head_of_household' |
    *               'qualifying_surviving_spouse'
    */
-  filingStatus: string
+  filingStatus: string;
 
   /**
    * Whether this return has a spouse.
    * When true, the session instantiates spouse copies of REPEATABLE nodes.
    * When false, spouse node instances do not exist and cannot receive input.
    */
-  hasSpouse:    boolean
+  hasSpouse: boolean;
 
   /**
    * Primary filer identity.
    * Always present.
    */
-  primary:      FilerIdentity
+  primary: FilerIdentity;
 
   /**
    * Spouse identity.
    * Present only when hasSpouse is true.
    */
-  spouse?:      FilerIdentity
+  spouse?: FilerIdentity;
 
   /**
    * Whether this is a non-resident return (Form 1040-NR).
    * Affects which node definitions are applicable.
    */
-  isNonResident: boolean
+  isNonResident: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,7 +177,7 @@ export interface SessionState {
    * This is the single source of truth for all node values.
    * The UI renders entirely from this map.
    */
-  nodes:         Record<NodeInstanceId, NodeSnapshot>
+  nodes: Record<NodeInstanceId, NodeSnapshot>;
 
   /**
    * Set of node instance IDs currently marked DIRTY.
@@ -161,33 +186,33 @@ export interface SessionState {
    *
    * Stored as an array (not a Set) for JSON serialization.
    */
-  dirtyNodes:    NodeInstanceId[]
+  dirtyNodes: NodeInstanceId[];
 
   /**
    * Set of node instance IDs that the engine has determined
    * are not applicable for this session context.
    * These are in SKIPPED status and their values are null.
    */
-  skippedNodes:  NodeInstanceId[]
+  skippedNodes: NodeInstanceId[];
 
   /**
    * Set of node instance IDs that are not yet implemented.
    * These are in UNSUPPORTED status.
    * The preparer must handle these manually.
    */
-  unsupportedNodes: NodeInstanceId[]
+  unsupportedNodes: NodeInstanceId[];
 
   /**
    * Set of node instance IDs where a preparer has manually
    * overridden a computed value.
    * The engine does not recompute these until the override is cleared.
    */
-  overriddenNodes: NodeInstanceId[]
+  overriddenNodes: NodeInstanceId[];
 
   /**
    * ISO 8601 timestamp of the last time any node value changed.
    */
-  lastModifiedAt: string
+  lastModifiedAt: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -210,25 +235,25 @@ export interface TaxSession {
    * Used as the primary key in DynamoDB (future).
    * Used to route WebSocket messages to the correct session.
    */
-  sessionKey:   string
+  sessionKey: string;
 
   /**
    * Fixed context — does not change after session creation.
    */
-  context:      SessionContext
+  context: SessionContext;
 
   /**
    * Mutable state — updated on every computation pass.
    * The engine returns a new state object; the old one is preserved
    * in the trace for replay purposes.
    */
-  state:        SessionState
+  state: SessionState;
 
   /**
    * Complete execution history for this session.
    * One TraceFrame per InputEvent processed, plus the setup frame.
    */
-  trace:        ExecutionTrace
+  trace: ExecutionTrace;
 
   /**
    * All input events received by this session, in order.
@@ -236,7 +261,7 @@ export interface TaxSession {
    * Replaying these events against a fresh session should produce
    * the same final state.
    */
-  eventLog:     InputEvent[]
+  eventLog: InputEvent[];
 
   /**
    * Current status of the overall session.
@@ -246,24 +271,24 @@ export interface TaxSession {
    * ERROR       — one or more nodes are in ERROR status
    * NEEDS_INPUT — one or more required input nodes have no value
    */
-  status:       SessionStatus
+  status: SessionStatus;
 
   /**
    * ISO 8601 timestamp when this session was first created.
    */
-  createdAt:    string
+  createdAt: string;
 
   /**
    * ISO 8601 timestamp of the last computation pass.
    */
-  lastUpdatedAt: string
+  lastUpdatedAt: string;
 }
 
 export enum SessionStatus {
-  ACTIVE       = 'active',
-  COMPLETE     = 'complete',
-  ERROR        = 'error',
-  NEEDS_INPUT  = 'needs_input'
+  ACTIVE = "active",
+  COMPLETE = "complete",
+  ERROR = "error",
+  NEEDS_INPUT = "needs_input",
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -276,11 +301,11 @@ export enum SessionStatus {
  * needs to show a return in a list or status card.
  */
 export interface SessionSummary {
-  sessionKey:       string
-  displayName:      string   // e.g. 'Maria Garcia — 2025'
-  taxYear:          string
-  filingStatus:     string
-  status:           SessionStatus
+  sessionKey: string;
+  displayName: string; // e.g. 'Maria Garcia — 2025'
+  taxYear: string;
+  filingStatus: string;
+  status: SessionStatus;
 
   /**
    * Key financial figures for quick display.
@@ -288,32 +313,32 @@ export interface SessionSummary {
    * null if the node has not yet been computed.
    */
   figures: {
-    adjustedGrossIncome:     number | null
-    totalTax:                number | null
-    totalPayments:           number | null
-    refundOrAmountOwed:      number | null   // positive = refund, negative = owed
-  }
+    adjustedGrossIncome: number | null;
+    totalTax: number | null;
+    totalPayments: number | null;
+    refundOrAmountOwed: number | null; // positive = refund, negative = owed
+  };
 
   /**
    * Counts for the status bar in the UI.
    */
   counts: {
-    totalNodes:        number
-    completedNodes:    number   // CLEAN + SKIPPED + OVERRIDE
-    pendingNodes:      number   // DIRTY + PENDING
-    unsupportedNodes:  number
-    errorNodes:        number
-    overrideNodes:     number
-  }
+    totalNodes: number;
+    completedNodes: number; // CLEAN + SKIPPED + OVERRIDE
+    pendingNodes: number; // DIRTY + PENDING
+    unsupportedNodes: number;
+    errorNodes: number;
+    overrideNodes: number;
+  };
 
   /**
    * Forms that have at least one CLEAN computed node.
    * Used to show which forms are "active" in the return.
    * Example: ['f8889', 'f5329', 'schedule-2', 'f1040']
    */
-  activeForms:      string[]
+  activeForms: string[];
 
-  lastUpdatedAt:    string
+  lastUpdatedAt: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -330,9 +355,9 @@ export interface SessionSummary {
  * can look them up efficiently.
  */
 export interface RepeatableNodeInstances {
-  definitionId:      NodeId           // the definition (e.g. 'f8889.primary.line13_hsaDeduction')
-  primaryInstanceId: NodeInstanceId   // primary filer instance
-  spouseInstanceId:  NodeInstanceId   // spouse filer instance (only when hasSpouse = true)
+  definitionId: NodeId; // the definition (e.g. 'f8889.primary.line13_hsaDeduction')
+  primaryInstanceId: NodeInstanceId; // primary filer instance
+  spouseInstanceId: NodeInstanceId; // spouse filer instance (only when hasSpouse = true)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -352,24 +377,24 @@ export interface SessionRepository {
    * Load a session by its key.
    * Returns null if no session exists for this key.
    */
-  load(sessionKey: string): Promise<TaxSession | null>
+  load(sessionKey: string): Promise<TaxSession | null>;
 
   /**
    * Persist a session.
    * Creates if it does not exist, replaces if it does.
    */
-  save(session: TaxSession): Promise<void>
+  save(session: TaxSession): Promise<void>;
 
   /**
    * Delete a session and all its data.
    */
-  delete(sessionKey: string): Promise<void>
+  delete(sessionKey: string): Promise<void>;
 
   /**
    * List all sessions for a given user.
    * Returns summaries only — not full session objects.
    */
-  listByUser(userId: string): Promise<SessionSummary[]>
+  listByUser(userId: string): Promise<SessionSummary[]>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
