@@ -52,11 +52,6 @@ function deferredAdjustment(
     repeatable: false,
     applicableTaxYears: APPLICABLE_YEARS,
     classifications: ["deduction.above_the_line"],
-    irsCitation: {
-      form: "schedule1",
-      line: lineNumber,
-      ...(ircSection !== undefined ? { ircSection } : {}),
-    },
     source: InputSource.PREPARER,
     questionId,
     defaultValue: 0,
@@ -172,8 +167,6 @@ const line13_hsaDeduction: NodeDefinition = {
   repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["deduction.above_the_line", "contribution.hsa"],
-  irsCitation: { form: "schedule1", line: "13", ircSection: "223(a)" },
-
   dependencies: [
     F8889_OUTPUTS.hsaDeduction, // f8889.primary.line13_hsaDeduction
     "f8889.spouse.line13_hsaDeduction", // materialized by engine when hasSpouse = true
@@ -210,7 +203,6 @@ const line26_totalAdjustments: NodeDefinition = {
   repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["deduction.above_the_line"],
-  irsCitation: { form: "schedule1", line: "26" },
 
   dependencies: [
     `${FORM_ID}.joint.line11_educatorExpenses`,

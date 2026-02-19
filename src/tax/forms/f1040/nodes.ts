@@ -93,7 +93,7 @@ const line9_totalIncome: NodeDefinition = {
     'income.portfolio',
     'income.other',
   ],
-  irsCitation:        { form: 'f1040', line: '9' },
+
   source:             InputSource.PREPARER,
   questionId:         'f1040.q.totalIncome',
   defaultValue:       0,
@@ -125,7 +125,7 @@ const line10_adjustmentsToIncome: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['deduction.above_the_line'],
-  irsCitation:        { form: 'f1040', line: '10' },
+
   dependencies:       [SCHEDULE1_OUTPUTS.totalAdjustments],
   compute: (ctx) => {
     return safeNum(ctx.get(SCHEDULE1_OUTPUTS.totalAdjustments));
@@ -166,7 +166,7 @@ const line11_adjustedGrossIncome: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['intermediate'],   // not 'income' -- AGI is a derived measure
-  irsCitation:        { form: 'f1040', line: '11', ircSection: '62' },
+
   dependencies: [
     `${FORM_ID}.joint.line9_totalIncome`,
     `${FORM_ID}.joint.line10_adjustmentsToIncome`,
@@ -211,7 +211,7 @@ const line12input_primaryAge: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['intermediate'],
-  irsCitation:        { form: 'f1040', line: '12', ircSection: '63(f)(1)(A)' },
+
   source:             InputSource.PREPARER,
   questionId:         'f1040.q.primaryAge',
   defaultValue:       0,
@@ -236,7 +236,7 @@ const line12input_primaryBlind: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['intermediate'],
-  irsCitation:        { form: 'f1040', line: '12', ircSection: '63(f)(1)(B)' },
+
   source:             InputSource.PREPARER,
   questionId:         'f1040.q.primaryBlind',
   defaultValue:       false,
@@ -258,7 +258,7 @@ const line12input_spouseAge: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['intermediate'],
-  irsCitation:        { form: 'f1040', line: '12', ircSection: '63(f)(1)(A)' },
+
   source:             InputSource.PREPARER,
   questionId:         'f1040.q.spouseAge',
   defaultValue:       0,
@@ -278,7 +278,7 @@ const line12input_spouseBlind: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['intermediate'],
-  irsCitation:        { form: 'f1040', line: '12', ircSection: '63(f)(1)(B)' },
+
   source:             InputSource.PREPARER,
   questionId:         'f1040.q.spouseBlind',
   defaultValue:       false,
@@ -309,7 +309,7 @@ const line12input_isDependentFiler: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['intermediate'],
-  irsCitation:        { form: 'f1040', line: '12', ircSection: '63(c)(5)' },
+
   source:             InputSource.PREPARER,
   questionId:         'f1040.q.isDependentFiler',
   defaultValue:       false,
@@ -336,7 +336,7 @@ const line12input_earnedIncome: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['income.earned', 'intermediate'],
-  irsCitation:        { form: 'f1040', line: '12', ircSection: '63(c)(5)' },
+
   source:             InputSource.PREPARER,
   questionId:         'f1040.q.earnedIncome',
   defaultValue:       0,
@@ -392,7 +392,7 @@ const line12_standardDeduction: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['deduction.below_the_line'],
-  irsCitation:        { form: 'f1040', line: '12', ircSection: '63' },
+
   dependencies: [
     `${FORM_ID}.joint.line12input_primaryAge`,
     `${FORM_ID}.joint.line12input_primaryBlind`,
@@ -484,7 +484,7 @@ const line13_qbiDeduction: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['deduction.below_the_line'],
-  irsCitation:        { form: 'f1040', line: '13', ircSection: '199A' },
+
   source:             InputSource.PREPARER,
   questionId:         'f1040.q.qbiDeduction',
   defaultValue:       0,
@@ -518,7 +518,7 @@ const line15_taxableIncome: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['intermediate'],
-  irsCitation:        { form: 'f1040', line: '15' },
+
   dependencies: [
     `${FORM_ID}.joint.line11_adjustedGrossIncome`,
     `${FORM_ID}.joint.line12_deduction`,
@@ -554,7 +554,6 @@ const line15_taxableIncome: NodeDefinition = {
 //   repeatable:         false,
 //   applicableTaxYears: APPLICABLE_YEARS,
 //   classifications:    ['intermediate'],
-//   irsCitation:        { form: 'f1040', line: '16' },
 //   source:             InputSource.PREPARER,
 //   questionId:         'f1040.q.tax',
 //   defaultValue:       0,
@@ -574,7 +573,6 @@ const line16_tax: NodeDefinition = {
   repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["intermediate"],
-  irsCitation: { form: "f1040", line: "16" },
 
   dependencies: [`${FORM_ID}.joint.line15_taxableIncome`],
 
@@ -621,7 +619,7 @@ const line17_additionalTaxes: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['penalty'],
-  irsCitation:        { form: 'f1040', line: '17' },
+
   dependencies:       [SCHEDULE2_OUTPUTS.totalAdditionalTaxes],
   compute: (ctx) => {
     return safeNum(ctx.get(SCHEDULE2_OUTPUTS.totalAdditionalTaxes));
@@ -658,7 +656,7 @@ const line24_totalTax: NodeDefinition = {
   repeatable:         false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications:    ['intermediate'],
-  irsCitation:        { form: 'f1040', line: '24' },
+
   dependencies: [
     `${FORM_ID}.joint.line16_tax`,
     `${FORM_ID}.joint.line17_additionalTaxes`,

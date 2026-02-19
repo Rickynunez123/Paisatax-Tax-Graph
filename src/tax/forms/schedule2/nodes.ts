@@ -36,20 +36,20 @@ function safeNum(value: unknown): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const line1_alternativeMinimumTax: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line1_alternativeMinimumTax`,
-  kind:               NodeKind.INPUT,
-  label:              'Schedule 2 Line 1 — Alternative Minimum Tax (Form 6251)',
-  description:        'AMT from Form 6251. Not yet supported — enter manually if applicable.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line1_alternativeMinimumTax`,
+  kind: NodeKind.INPUT,
+  label: "Schedule 2 Line 1 — Alternative Minimum Tax (Form 6251)",
+  description:
+    "AMT from Form 6251. Not yet supported — enter manually if applicable.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['penalty'],
-  irsCitation:        { form: 'schedule2', line: '1', ircSection: '55' },
-  source:             'preparer' as any,
-  questionId:         'schedule2.q.amt',
-  defaultValue:       0,
+  classifications: ["penalty"],
+  source: "preparer" as any,
+  questionId: "schedule2.q.amt",
+  defaultValue: 0,
 };
 
 const line2_excessPremiumTaxCredit: NodeDefinition = {
@@ -64,7 +64,6 @@ const line2_excessPremiumTaxCredit: NodeDefinition = {
   repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["penalty"],
-  irsCitation: { form: "schedule2", line: "2", ircSection: "36B" },
   source: "preparer" as any,
   questionId: "schedule2.q.premiumTaxCreditRepayment",
   defaultValue: 0,
@@ -81,7 +80,6 @@ const line3_subtotal: NodeDefinition = {
   repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["intermediate"],
-  irsCitation: { form: "schedule2", line: "3" },
   dependencies: [
     `${FORM_ID}.joint.line1_alternativeMinimumTax`,
     `${FORM_ID}.joint.line2_excessPremiumTaxCredit`,
@@ -117,7 +115,6 @@ const line8_additionalRetirementTax: NodeDefinition = {
   repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["penalty"],
-  irsCitation: { form: "schedule2", line: "8", ircSection: "72(t)" },
 
   dependencies: [
     F5329_OUTPUTS.earlyDistributionPenalty, // f5329.primary.line4_additionalTax
@@ -178,7 +175,6 @@ const line17b_hsaDistributionTax: NodeDefinition = {
   repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["penalty"],
-  irsCitation: { form: "schedule2", line: "17b", ircSection: "223(f)(4)" },
 
   dependencies: [
     F8889_OUTPUTS.additionalTax, // f8889.primary.line17b_additionalTax
@@ -214,7 +210,6 @@ const line44_totalAdditionalTaxes: NodeDefinition = {
   repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["penalty"],
-  irsCitation: { form: "schedule2", line: "44" },
 
   dependencies: [
     `${FORM_ID}.joint.line3_subtotal`,

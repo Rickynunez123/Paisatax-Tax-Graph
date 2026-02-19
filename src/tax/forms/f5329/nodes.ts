@@ -77,7 +77,6 @@ const line1_earlyDistributions: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["income.other", "distribution.retirement"],
-  irsCitation: { form: "f5329", line: "1", ircSection: "72(t)" },
   source: InputSource.OCR,
   ocrMapping: {
     documentType: "1099-R",
@@ -123,7 +122,6 @@ const line2_exceptionAmount: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["distribution.retirement", "intermediate"],
-  irsCitation: { form: "f5329", line: "2", ircSection: "72(t)(2)" },
   source: InputSource.PREPARER,
   questionId: "f5329.q.exceptionAmount",
   defaultValue: 0,
@@ -146,7 +144,6 @@ const line2_exceptionCode: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["distribution.retirement", "intermediate"],
-  irsCitation: { form: "f5329", line: "2", ircSection: "72(t)(2)" },
   source: InputSource.PREPARER,
   questionId: "f5329.q.exceptionCode",
   defaultValue: "12",
@@ -188,7 +185,6 @@ const line3_amountSubjectToTax: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["distribution.retirement", "intermediate"],
-  irsCitation: { form: "f5329", line: "3" },
   dependencies: [
     `${FORM_ID}.primary.line1_earlyDistributions`,
     `${FORM_ID}.primary.line2_exceptionAmount`,
@@ -220,7 +216,6 @@ const line4_additionalTax: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["penalty"],
-  irsCitation: { form: "f5329", line: "4", ircSection: "72(t)(1)" },
   dependencies: [`${FORM_ID}.primary.line3_amountSubjectToTax`],
   compute: (ctx) => {
     const constants = getF5329Constants(ctx.taxYear);
@@ -275,7 +270,6 @@ const line43_priorYearExcess: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["contribution.hsa", "intermediate"],
-  irsCitation: { form: "f5329", line: "43", ircSection: "4973" },
   source: InputSource.PRIOR_YEAR,
   questionId: "f5329.q.priorYearExcess",
   defaultValue: 0,
@@ -310,7 +304,6 @@ const line44_currentYearContributions: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["contribution.hsa", "intermediate"],
-  irsCitation: { form: "f5329", line: "44", ircSection: "4973" },
 
   // ↓ Cross-form dependencies — engine resolves these from Form 8889's node registry
   dependencies: [
@@ -348,7 +341,6 @@ const line45_fundingDistributions: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["contribution.hsa", "intermediate"],
-  irsCitation: { form: "f5329", line: "45", ircSection: "4973" },
   dependencies: ["f8889.primary.line11_qualifiedFundingDistribution"],
   compute: (ctx) => {
     return (
@@ -387,7 +379,6 @@ const line46_maximumAllowableContribution: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["contribution.hsa", "intermediate"],
-  irsCitation: { form: "f5329", line: "46", ircSection: "4973(a)" },
 
   // ↓ Cross-form dependency — reads from Form 8889 Line 5 (total annual limit)
   //   NOT Line 13 (personal deduction). This is the key distinction:
@@ -420,7 +411,6 @@ const line47_adjustedExcess: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["contribution.hsa", "intermediate"],
-  irsCitation: { form: "f5329", line: "47", ircSection: "4973" },
   dependencies: [
     `${FORM_ID}.primary.line43_priorYearExcess`,
     `${FORM_ID}.primary.line44_currentYearContributions`,
@@ -468,7 +458,6 @@ const line48_excessWithdrawn: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["contribution.hsa", "intermediate"],
-  irsCitation: { form: "f5329", line: "48", ircSection: "4973(a)" },
   source: InputSource.PREPARER,
   questionId: "f5329.q.excessWithdrawn",
   defaultValue: 0,
@@ -498,7 +487,6 @@ const line49_taxableExcess: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["contribution.hsa", "intermediate"],
-  irsCitation: { form: "f5329", line: "49", ircSection: "4973" },
   dependencies: [
     `${FORM_ID}.primary.line47_adjustedExcess`,
     `${FORM_ID}.primary.line48_excessWithdrawn`,
@@ -531,7 +519,6 @@ const line49_excessTax: NodeDefinition = {
   repeatable: true,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["penalty"],
-  irsCitation: { form: "f5329", line: "49", ircSection: "4973(a)(1)" },
   dependencies: [`${FORM_ID}.primary.line49_taxableExcess`],
   compute: (ctx) => {
     const constants = getF5329Constants(ctx.taxYear);

@@ -252,14 +252,6 @@ export interface BaseNodeDefinition {
    */
   classifications: NodeClassificationTag[];
 
-  /**
-   * REMOVE????? SINCE WE ALREADY HAVE THE LINE AND THE NAME OF THE FORM
-   * IRS citation for this node — form number, line number, and
-   * optionally the IRC section that governs it.
-   *
-   * Example: { form: 'f8889', line: '13', ircSection: '223' }
-   */
-  irsCitation: IRSCitation;
 
   /**
    * MAYBE NOT NEEDED
@@ -463,16 +455,6 @@ export type NodeDefinition = InputNodeDefinition | ComputedNodeDefinition
  * IRS citation attached to every node.
  * Provides traceability from any computed value back to the IRS source.
  */
-export interface IRSCitation {
-  /** The IRS form number. Example: 'f8889', 'schedule-2', 'f1040' */
-  form:        string
-  /** The line number on that form. Example: '13', '14a', '17b' */
-  line:        string
-  /** Optional: The IRC section governing this calculation. Example: '223' */
-  ircSection?: string
-  /** Optional: IRS Publication reference. Example: 'Pub 590-B' */
-  publication?: string
-}
 
 /**
  * Classification tag — referenced from BaseNodeDefinition.classifications.
