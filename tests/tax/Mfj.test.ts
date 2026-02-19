@@ -150,10 +150,12 @@ const S2 = {
 };
 
 const F = {
-  totalIncome:    'f1040.joint.line9_totalIncome',
-  adjustments:    'f1040.joint.line10_adjustmentsToIncome',
-  agi:            'f1040.joint.line11_adjustedGrossIncome',
+  otherIncome: "f1040.joint.line9input_otherIncome", // ✅ INPUT (write here)
+  totalIncome: "f1040.joint.line9_totalIncome", // ✅ COMPUTED (read/assert only)
+  adjustments: "f1040.joint.line10_adjustmentsToIncome",
+  agi: "f1040.joint.line11_adjustedGrossIncome",
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUITE 1 — INSTANCE MATERIALIZATION
@@ -431,7 +433,12 @@ describe('MFJ Spouse Materialization — Dirty Propagation', () => {
     let result    = engine.initializeSession({ ...context, sessionKey: 'test#2025' });
 
     // Set up both filers
-    result = engine.process(makeEvent(F.totalIncome,           150_000), result.currentState, context);
+    result = engine.process(
+      makeEvent(F.otherIncome, 150_000),
+      result.currentState,
+      context,
+    );
+
     result = engine.process(makeEvent(P.coverageType,          'self_only'), result.currentState, context);
     result = engine.process(makeEvent(P.personalContributions, 4_300), result.currentState, context);
     result = engine.process(makeEvent(P.ageAsOfDec31,          45),    result.currentState, context);
@@ -540,17 +547,17 @@ describe('MFJ Spouse Materialization — Full Vertical Slice', () => {
      *   Line 17: SKIPPED (no penalties)
      */
     const { result } = applyMFJ([
-      { instanceId: F.totalIncome,            value: 200_000 },
+      { instanceId: F.otherIncome, value: 200_000 },
       // David
-      { instanceId: P.coverageType,           value: 'self_only' },
-      { instanceId: P.personalContributions,  value: 4_300 },
-      { instanceId: P.ageAsOfDec31,           value: 48 },
-      { instanceId: P.totalDistributions,     value: 1_000 },
-      { instanceId: P.qualifiedExpenses,      value: 1_000 },  // all qualified
+      { instanceId: P.coverageType, value: "self_only" },
+      { instanceId: P.personalContributions, value: 4_300 },
+      { instanceId: P.ageAsOfDec31, value: 48 },
+      { instanceId: P.totalDistributions, value: 1_000 },
+      { instanceId: P.qualifiedExpenses, value: 1_000 }, // all qualified
       // Maria
-      { instanceId: SP.coverageType,          value: 'family' },
+      { instanceId: SP.coverageType, value: "family" },
       { instanceId: SP.personalContributions, value: 8_550 },
-      { instanceId: SP.ageAsOfDec31,          value: 45 },
+      { instanceId: SP.ageAsOfDec31, value: 45 },
     ]);
 
     const state = result.currentState;
@@ -581,17 +588,17 @@ describe('MFJ Spouse Materialization — Full Vertical Slice', () => {
      * Schedule 2 penalties: $1,054 ($54 + $1,000)
      */
     const { result } = applyMFJ([
-      { instanceId: F.totalIncome,            value: 250_000 },
+      { instanceId: F.otherIncome, value: 250_000 },
       // David
-      { instanceId: P.coverageType,           value: 'self_only' },
-      { instanceId: P.personalContributions,  value: 5_200 },
-      { instanceId: P.ageAsOfDec31,           value: 50 },
-      { instanceId: PR.earlyDistributions,    value: 10_000 },
-      { instanceId: PR.exceptionAmount,       value: 0 },
+      { instanceId: P.coverageType, value: "self_only" },
+      { instanceId: P.personalContributions, value: 5_200 },
+      { instanceId: P.ageAsOfDec31, value: 50 },
+      { instanceId: PR.earlyDistributions, value: 10_000 },
+      { instanceId: PR.exceptionAmount, value: 0 },
       // Maria
-      { instanceId: SP.coverageType,          value: 'family' },
+      { instanceId: SP.coverageType, value: "family" },
       { instanceId: SP.personalContributions, value: 8_550 },
-      { instanceId: SP.ageAsOfDec31,          value: 48 },
+      { instanceId: SP.ageAsOfDec31, value: 48 },
     ]);
 
     const state = result.currentState;

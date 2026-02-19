@@ -74,18 +74,24 @@ function sessionEngine(filingStatus = 'single', taxYear = '2025') {
 
 // Node shorthands
 const F = {
-  income:          'f1040.joint.line9_totalIncome',
-  primaryAge:      'f1040.joint.line12input_primaryAge',
-  primaryBlind:    'f1040.joint.line12input_primaryBlind',
-  spouseAge:       'f1040.joint.line12input_spouseAge',
-  spouseBlind:     'f1040.joint.line12input_spouseBlind',
-  isDependent:     'f1040.joint.line12input_isDependentFiler',
-  earnedIncome:    'f1040.joint.line12input_earnedIncome',
-  deduction:       'f1040.joint.line12_deduction',
-  qbi:             'f1040.joint.line13_qbiDeduction',
-  taxableIncome:   'f1040.joint.line15_taxableIncome',
-  agi:             'f1040.joint.line11_adjustedGrossIncome',
+  // ✅ INPUT (write here)
+  otherIncome: "f1040.joint.line9input_otherIncome",
+
+  // ✅ COMPUTED (read-only assertions)
+  totalIncome: "f1040.joint.line9_totalIncome",
+
+  primaryAge: "f1040.joint.line12input_primaryAge",
+  primaryBlind: "f1040.joint.line12input_primaryBlind",
+  spouseAge: "f1040.joint.line12input_spouseAge",
+  spouseBlind: "f1040.joint.line12input_spouseBlind",
+  isDependent: "f1040.joint.line12input_isDependentFiler",
+  earnedIncome: "f1040.joint.line12input_earnedIncome",
+  deduction: "f1040.joint.line12_deduction",
+  qbi: "f1040.joint.line13_qbiDeduction",
+  taxableIncome: "f1040.joint.line15_taxableIncome",
+  agi: "f1040.joint.line11_adjustedGrossIncome",
 };
+
 
 const num  = (state: ReturnType<typeof session>, id: string) => state[id]?.value as number;
 const stat = (state: ReturnType<typeof session>, id: string) => state[id]?.status;
@@ -108,7 +114,7 @@ describe('Standard Deduction — Base Amount by Filing Status', () => {
 
   for (const [fs, expected] of cases2025) {
     test(`2025 ${fs}: base deduction = $${expected.toLocaleString()}`, () => {
-      const state = session([{ id: F.income, value: 100_000 }], fs);
+      const state = session([{ id: F.otherIncome, value: 100_000 }], fs);
       expect(num(state, F.deduction)).toBe(expected);
     });
   }
@@ -125,7 +131,11 @@ describe('Standard Deduction — Base Amount by Filing Status', () => {
 
   for (const [fs, expected] of cases2024) {
     test(`2024 ${fs}: base deduction = $${expected.toLocaleString()}`, () => {
-      const state = session([{ id: F.income, value: 100_000 }], fs, '2024');
+      const state = session(
+        [{ id: F.otherIncome, value: 100_000 }],
+        fs,
+        "2024",
+      );
       expect(num(state, F.deduction)).toBe(expected);
     });
   }
@@ -141,7 +151,7 @@ describe('Standard Deduction — Additional Amount: Age 65+', () => {
   test('Single filer, age 65 — one additional unit ($2,000)', () => {
     // Base $15,000 + $2,000 = $17,000
     const state = session([
-      { id: F.income,     value: 80_000 },
+      { id: F.otherIncome, value: 80_000 },
       { id: F.primaryAge, value: 65 },
     ]);
     expect(num(state, F.deduction)).toBe(17_000);
@@ -150,70 +160,93 @@ describe('Standard Deduction — Additional Amount: Age 65+', () => {
   test('Single filer, age 64 — no additional amount', () => {
     // Base $15,000 only
     const state = session([
-      { id: F.income,     value: 80_000 },
+      { id: F.otherIncome, value: 80_000 },
       { id: F.primaryAge, value: 64 },
     ]);
     expect(num(state, F.deduction)).toBe(15_000);
   });
 
   test('Single filer, age 65 exactly at boundary', () => {
-    const state = session([{ id: F.income, value: 50_000 }, { id: F.primaryAge, value: 65 }]);
+    const state = session([
+      { id: F.otherIncome, value: 50_000 },
+      { id: F.primaryAge, value: 65 },
+    ]);
     expect(num(state, F.deduction)).toBe(17_000);
   });
 
   test('HOH filer, age 70 — single rate additional ($2,000)', () => {
     // Base $22,500 + $2,000 = $24,500
-    const state = session([
-      { id: F.income,     value: 80_000 },
-      { id: F.primaryAge, value: 70 },
-    ], 'head_of_household');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 80_000 },
+        { id: F.primaryAge, value: 70 },
+      ],
+      "head_of_household",
+    );
     expect(num(state, F.deduction)).toBe(24_500);
   });
 
   test('MFJ, primary age 68 — one married-rate additional ($1,600)', () => {
     // Base $30,000 + $1,600 = $31,600
-    const state = session([
-      { id: F.income,     value: 100_000 },
-      { id: F.primaryAge, value: 68 },
-    ], 'married_filing_jointly');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 100_000 },
+        { id: F.primaryAge, value: 68 },
+      ],
+      "married_filing_jointly",
+    );
     expect(num(state, F.deduction)).toBe(31_600);
   });
 
   test('MFJ, both spouses age 66 — two married-rate additionals ($3,200)', () => {
     // Base $30,000 + $1,600 × 2 = $33,200
-    const state = session([
-      { id: F.income,     value: 100_000 },
-      { id: F.primaryAge, value: 66 },
-      { id: F.spouseAge,  value: 67 },
-    ], 'married_filing_jointly');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 100_000 },
+        { id: F.primaryAge, value: 66 },
+        { id: F.spouseAge, value: 67 },
+      ],
+      "married_filing_jointly",
+    );
     expect(num(state, F.deduction)).toBe(33_200);
   });
 
   test('MFJ, only one spouse age 65 — one additional', () => {
     // Base $30,000 + $1,600 = $31,600
-    const state = session([
-      { id: F.income,     value: 100_000 },
-      { id: F.primaryAge, value: 65 },
-      { id: F.spouseAge,  value: 62 },  // under 65
-    ], 'married_filing_jointly');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 100_000 },
+        { id: F.primaryAge, value: 65 },
+        { id: F.spouseAge, value: 62 }, // under 65
+      ],
+      "married_filing_jointly",
+    );
     expect(num(state, F.deduction)).toBe(31_600);
   });
 
   test('2024: single age 65 gets $1,950 additional (not $2,000)', () => {
     // 2024 single additional = $1,950
-    const state = session([
-      { id: F.income,     value: 80_000 },
-      { id: F.primaryAge, value: 65 },
-    ], 'single', '2024');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 80_000 },
+        { id: F.primaryAge, value: 65 },
+      ],
+      "single",
+      "2024",
+    );
     expect(num(state, F.deduction)).toBe(16_550); // $14,600 + $1,950
   });
 
   test('2024: MFJ both 65+ get $1,550 each ($3,100 total additional)', () => {
-    const state = session([
-      { id: F.income,     value: 100_000 },
-      { id: F.primaryAge, value: 67 },
-      { id: F.spouseAge,  value: 66 },
-    ], 'married_filing_jointly', '2024');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 100_000 },
+        { id: F.primaryAge, value: 67 },
+        { id: F.spouseAge, value: 66 },
+      ],
+      "married_filing_jointly",
+      "2024",
+    );
     expect(num(state, F.deduction)).toBe(32_300); // $29,200 + $3,100
   });
 
@@ -227,7 +260,7 @@ describe('Standard Deduction — Additional Amount: Blindness', () => {
 
   test('Single filer, blind — one additional ($2,000)', () => {
     const state = session([
-      { id: F.income,       value: 60_000 },
+      { id: F.otherIncome, value: 60_000 },
       { id: F.primaryBlind, value: true },
     ]);
     expect(num(state, F.deduction)).toBe(17_000); // $15,000 + $2,000
@@ -236,18 +269,21 @@ describe('Standard Deduction — Additional Amount: Blindness', () => {
   test('Single filer, age 66 AND blind — two additionals ($4,000)', () => {
     // Age 65+ = +1, blind = +1 → 2 × $2,000 = $4,000 additional
     const state = session([
-      { id: F.income,       value: 60_000 },
-      { id: F.primaryAge,   value: 66 },
+      { id: F.otherIncome, value: 60_000 },
+      { id: F.primaryAge, value: 66 },
       { id: F.primaryBlind, value: true },
     ]);
     expect(num(state, F.deduction)).toBe(19_000); // $15,000 + $4,000
   });
 
   test('MFJ, primary blind — one married-rate additional ($1,600)', () => {
-    const state = session([
-      { id: F.income,       value: 100_000 },
-      { id: F.primaryBlind, value: true },
-    ], 'married_filing_jointly');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 100_000 },
+        { id: F.primaryBlind, value: true },
+      ],
+      "married_filing_jointly",
+    );
     expect(num(state, F.deduction)).toBe(31_600); // $30,000 + $1,600
   });
 
@@ -255,24 +291,30 @@ describe('Standard Deduction — Additional Amount: Blindness', () => {
     // Primary: age 65 +1, blind +1 = 2 units
     // Spouse:  age 65 +1 = 1 unit
     // Total: 3 × $1,600 = $4,800
-    const state = session([
-      { id: F.income,       value: 100_000 },
-      { id: F.primaryAge,   value: 65 },
-      { id: F.primaryBlind, value: true },
-      { id: F.spouseAge,    value: 65 },
-    ], 'married_filing_jointly');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 100_000 },
+        { id: F.primaryAge, value: 65 },
+        { id: F.primaryBlind, value: true },
+        { id: F.spouseAge, value: 65 },
+      ],
+      "married_filing_jointly",
+    );
     expect(num(state, F.deduction)).toBe(34_800); // $30,000 + $4,800
   });
 
   test('MFJ, both age 65+ AND both blind — four additionals ($6,400)', () => {
     // Maximum possible: 4 × $1,600 = $6,400
-    const state = session([
-      { id: F.income,       value: 100_000 },
-      { id: F.primaryAge,   value: 70 },
-      { id: F.primaryBlind, value: true },
-      { id: F.spouseAge,    value: 68 },
-      { id: F.spouseBlind,  value: true },
-    ], 'married_filing_jointly');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 100_000 },
+        { id: F.primaryAge, value: 70 },
+        { id: F.primaryBlind, value: true },
+        { id: F.spouseAge, value: 68 },
+        { id: F.spouseBlind, value: true },
+      ],
+      "married_filing_jointly",
+    );
     expect(num(state, F.deduction)).toBe(36_400); // $30,000 + $6,400
   });
 
@@ -280,10 +322,13 @@ describe('Standard Deduction — Additional Amount: Blindness', () => {
     // Single filer: spouse inputs should be ignored
     // Even if preparer accidentally enters spouseBlind = true, it should not add
     // an additional unit because single filers have no spouse
-    const state = session([
-      { id: F.income,      value: 60_000 },
-      { id: F.spouseBlind, value: true },   // entered in error
-    ], 'single');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 60_000 },
+        { id: F.spouseBlind, value: true }, // entered in error
+      ],
+      "single",
+    );
     expect(num(state, F.deduction)).toBe(15_000); // no change from base
   });
 
@@ -301,7 +346,7 @@ describe('Standard Deduction — Dependent Filer Formula', () => {
   test('Dependent with zero earned income — gets flat minimum ($1,350)', () => {
     // max($1,350, min($0 + $450, $15,000)) = max($1,350, $450) = $1,350
     const state = session([
-      { id: F.income,      value: 0 },
+      { id: F.otherIncome, value: 0 },
       { id: F.isDependent, value: true },
       { id: F.earnedIncome, value: 0 },
     ]);
@@ -311,8 +356,8 @@ describe('Standard Deduction — Dependent Filer Formula', () => {
   test('Dependent with earned income $800 — still gets flat minimum', () => {
     // max($1,350, min($800 + $450, $15,000)) = max($1,350, $1,250) = $1,350
     const state = session([
-      { id: F.income,       value: 10_000 },
-      { id: F.isDependent,  value: true },
+      { id: F.otherIncome, value: 10_000 },
+      { id: F.isDependent, value: true },
       { id: F.earnedIncome, value: 800 },
     ]);
     expect(num(state, F.deduction)).toBe(1_350);
@@ -321,8 +366,8 @@ describe('Standard Deduction — Dependent Filer Formula', () => {
   test('Dependent with earned income $1,000 — gets $1,450 (earned + adder)', () => {
     // max($1,350, min($1,000 + $450, $15,000)) = max($1,350, $1,450) = $1,450
     const state = session([
-      { id: F.income,       value: 10_000 },
-      { id: F.isDependent,  value: true },
+      { id: F.otherIncome, value: 10_000 },
+      { id: F.isDependent, value: true },
       { id: F.earnedIncome, value: 1_000 },
     ]);
     expect(num(state, F.deduction)).toBe(1_450);
@@ -331,8 +376,8 @@ describe('Standard Deduction — Dependent Filer Formula', () => {
   test('Dependent with earned income $5,000 — gets $5,450', () => {
     // max($1,350, min($5,000 + $450, $15,000)) = max($1,350, $5,450) = $5,450
     const state = session([
-      { id: F.income,       value: 15_000 },
-      { id: F.isDependent,  value: true },
+      { id: F.otherIncome, value: 15_000 },
+      { id: F.isDependent, value: true },
       { id: F.earnedIncome, value: 5_000 },
     ]);
     expect(num(state, F.deduction)).toBe(5_450);
@@ -341,8 +386,8 @@ describe('Standard Deduction — Dependent Filer Formula', () => {
   test('Dependent with earned income $20,000 — capped at normal base ($15,000)', () => {
     // max($1,350, min($20,000 + $450, $15,000)) = max($1,350, $15,000) = $15,000
     const state = session([
-      { id: F.income,       value: 30_000 },
-      { id: F.isDependent,  value: true },
+      { id: F.otherIncome, value: 30_000 },
+      { id: F.isDependent, value: true },
       { id: F.earnedIncome, value: 20_000 },
     ]);
     expect(num(state, F.deduction)).toBe(15_000);
@@ -353,9 +398,9 @@ describe('Standard Deduction — Dependent Filer Formula', () => {
     // Dependent at 66 (earned income $0): max($1,350, $450) = $1,350
     // The age/blind additions are irrelevant for dependent filers
     const state = session([
-      { id: F.income,       value: 5_000 },
-      { id: F.isDependent,  value: true },
-      { id: F.primaryAge,   value: 66 },
+      { id: F.otherIncome, value: 5_000 },
+      { id: F.isDependent, value: true },
+      { id: F.primaryAge, value: 66 },
       { id: F.earnedIncome, value: 0 },
     ]);
     expect(num(state, F.deduction)).toBe(1_350); // NOT $17,000
@@ -363,7 +408,7 @@ describe('Standard Deduction — Dependent Filer Formula', () => {
 
   test('Clearing dependent status restores normal deduction', () => {
     const s = sessionEngine('single');
-    s.apply(F.income,       30_000);
+    s.apply(F.otherIncome, 30_000);
     s.apply(F.isDependent,  true);
     s.apply(F.earnedIncome, 0);
     expect(s.num(F.deduction)).toBe(1_350);  // dependent formula
@@ -375,11 +420,15 @@ describe('Standard Deduction — Dependent Filer Formula', () => {
 
   test('2024 dependent flat minimum is $1,300 (not $1,350)', () => {
     // 2024: flatMinimum = $1,300, earnedIncomeAdder = $450
-    const state = session([
-      { id: F.income,       value: 5_000 },
-      { id: F.isDependent,  value: true },
-      { id: F.earnedIncome, value: 0 },
-    ], 'single', '2024');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 5_000 },
+        { id: F.isDependent, value: true },
+        { id: F.earnedIncome, value: 0 },
+      ],
+      "single",
+      "2024",
+    );
     expect(num(state, F.deduction)).toBe(1_300);
   });
 
@@ -394,7 +443,7 @@ describe('Standard Deduction — Taxable Income (Line 15)', () => {
   test('Taxable income = total income - standard deduction (no adjustments)', () => {
     // Income $60,000, no AGI adjustments, single → deduction $15,000
     // Taxable income = $60,000 - $15,000 = $45,000
-    const state = session([{ id: F.income, value: 60_000 }]);
+    const state = session([{ id: F.otherIncome, value: 60_000 }]);
     expect(num(state, F.agi)).toBe(60_000);
     expect(num(state, F.deduction)).toBe(15_000);
     expect(num(state, F.taxableIncome)).toBe(45_000);
@@ -405,10 +454,10 @@ describe('Standard Deduction — Taxable Income (Line 15)', () => {
     // Standard deduction (single) $15,000
     // Taxable income = $70,700 - $15,000 = $55,700
     const state = session([
-      { id: F.income,                                 value: 75_000 },
-      { id: 'f8889.primary.line1_coverageType',        value: 'self_only' },
-      { id: 'f8889.primary.line2_personalContributions', value: 4_300 },
-      { id: 'f8889.primary.line4input_ageAsOfDec31',   value: 40 },
+      { id: F.otherIncome, value: 75_000 },
+      { id: "f8889.primary.line1_coverageType", value: "self_only" },
+      { id: "f8889.primary.line2_personalContributions", value: 4_300 },
+      { id: "f8889.primary.line4input_ageAsOfDec31", value: 40 },
     ]);
     expect(num(state, F.agi)).toBe(70_700);
     expect(num(state, F.deduction)).toBe(15_000);
@@ -419,8 +468,8 @@ describe('Standard Deduction — Taxable Income (Line 15)', () => {
     // AGI $60,000, standard deduction $15,000, QBI $5,000 (manual)
     // Taxable income = $60,000 - $15,000 - $5,000 = $40,000
     const state = session([
-      { id: F.income, value: 60_000 },
-      { id: F.qbi,    value: 5_000 },
+      { id: F.otherIncome, value: 60_000 },
+      { id: F.qbi, value: 5_000 },
     ]);
     expect(num(state, F.taxableIncome)).toBe(40_000);
   });
@@ -428,7 +477,7 @@ describe('Standard Deduction — Taxable Income (Line 15)', () => {
   test('Taxable income cannot go below zero', () => {
     // Low income filer: $5,000 income, single, standard deduction $15,000
     // $5,000 - $15,000 = -$10,000 → floored at 0
-    const state = session([{ id: F.income, value: 5_000 }]);
+    const state = session([{ id: F.otherIncome, value: 5_000 }]);
     expect(num(state, F.taxableIncome)).toBe(0);
   });
 
@@ -436,8 +485,8 @@ describe('Standard Deduction — Taxable Income (Line 15)', () => {
     // Income $100,000, MFJ, standard $30,000
     // Taxable = $100,000 - $30,000 = $70,000
     const state = session(
-      [{ id: F.income, value: 100_000 }],
-      'married_filing_jointly',
+      [{ id: F.otherIncome, value: 100_000 }],
+      "married_filing_jointly",
     );
     expect(num(state, F.deduction)).toBe(30_000);
     expect(num(state, F.taxableIncome)).toBe(70_000);
@@ -448,7 +497,7 @@ describe('Standard Deduction — Taxable Income (Line 15)', () => {
     // Standard = $15,000 + $2,000 = $17,000
     // Taxable = $60,000 - $17,000 = $43,000
     const state = session([
-      { id: F.income,     value: 60_000 },
+      { id: F.otherIncome, value: 60_000 },
       { id: F.primaryAge, value: 66 },
     ]);
     expect(num(state, F.deduction)).toBe(17_000);
@@ -456,7 +505,7 @@ describe('Standard Deduction — Taxable Income (Line 15)', () => {
   });
 
   test('Node is CLEAN and status is accessible', () => {
-    const state = session([{ id: F.income, value: 60_000 }]);
+    const state = session([{ id: F.otherIncome, value: 60_000 }]);
     expect(stat(state, F.taxableIncome)).toBe(NodeStatus.CLEAN);
     expect(stat(state, F.deduction)).toBe(NodeStatus.CLEAN);
   });
@@ -483,11 +532,11 @@ describe('Standard Deduction — Full Vertical Slice', () => {
      *   Taxable income = $43,700 - $17,000 = $26,700
      */
     const state = session([
-      { id: F.income,                                    value: 48_000 },
-      { id: 'f8889.primary.line1_coverageType',           value: 'self_only' },
-      { id: 'f8889.primary.line2_personalContributions',  value: 4_300 },
-      { id: 'f8889.primary.line4input_ageAsOfDec31',      value: 67 },
-      { id: F.primaryAge,                                value: 67 },   // used for std ded
+      { id: F.otherIncome, value: 48_000 },
+      { id: "f8889.primary.line1_coverageType", value: "self_only" },
+      { id: "f8889.primary.line2_personalContributions", value: 4_300 },
+      { id: "f8889.primary.line4input_ageAsOfDec31", value: 67 },
+      { id: F.primaryAge, value: 67 }, // used for std ded
     ]);
 
     expect(num(state, F.agi)).toBe(43_700);
@@ -506,11 +555,14 @@ describe('Standard Deduction — Full Vertical Slice', () => {
      *   Standard deduction = $30,000 (base) + $1,600 × 2 (both 66) = $33,200
      *   Taxable income = $120,000 - $33,200 = $86,800
      */
-    const state = session([
-      { id: F.income,     value: 120_000 },
-      { id: F.primaryAge, value: 66 },
-      { id: F.spouseAge,  value: 66 },
-    ], 'married_filing_jointly');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 120_000 },
+        { id: F.primaryAge, value: 66 },
+        { id: F.spouseAge, value: 66 },
+      ],
+      "married_filing_jointly",
+    );
 
     expect(num(state, F.agi)).toBe(120_000);
     expect(num(state, F.deduction)).toBe(33_200);
@@ -531,8 +583,8 @@ describe('Standard Deduction — Full Vertical Slice', () => {
      * (His deduction exceeds his income — zero taxable income)
      */
     const state = session([
-      { id: F.income,       value: 4_000 },
-      { id: F.isDependent,  value: true },
+      { id: F.otherIncome, value: 4_000 },
+      { id: F.isDependent, value: true },
       { id: F.earnedIncome, value: 4_000 },
     ]);
 
@@ -541,13 +593,13 @@ describe('Standard Deduction — Full Vertical Slice', () => {
   });
 
   test('F1040_OUTPUTS.taxableIncome points to the correct node', () => {
-    const state = session([{ id: F.income, value: 60_000 }]);
+    const state = session([{ id: F.otherIncome, value: 60_000 }]);
     expect(state[F1040_OUTPUTS.taxableIncome]).toBeDefined();
     expect(state[F1040_OUTPUTS.taxableIncome]?.value).toBe(45_000);
   });
 
   test('F1040_OUTPUTS.standardDeduction points to the correct node', () => {
-    const state = session([{ id: F.income, value: 60_000 }]);
+    const state = session([{ id: F.otherIncome, value: 60_000 }]);
     expect(state[F1040_OUTPUTS.standardDeduction]).toBeDefined();
     expect(state[F1040_OUTPUTS.standardDeduction]?.value).toBe(15_000);
   });
@@ -562,7 +614,7 @@ describe('Standard Deduction — Reactivity', () => {
 
   test('Turning 65 mid-session adds $2,000 to deduction and reduces taxable income', () => {
     const s = sessionEngine('single');
-    s.apply(F.income,     60_000);
+    s.apply(F.otherIncome, 60_000);
     s.apply(F.primaryAge, 64);   // not yet 65
 
     expect(s.num(F.deduction)).toBe(15_000);
@@ -576,7 +628,7 @@ describe('Standard Deduction — Reactivity', () => {
 
   test('Becoming blind mid-session adds additional deduction', () => {
     const s = sessionEngine('single');
-    s.apply(F.income,       60_000);
+    s.apply(F.otherIncome, 60_000);
     s.apply(F.primaryBlind, false);
 
     expect(s.num(F.deduction)).toBe(15_000);
@@ -588,18 +640,21 @@ describe('Standard Deduction — Reactivity', () => {
 
   test('Increasing income raises taxable income but not the deduction', () => {
     const s = sessionEngine('single');
-    s.apply(F.income, 50_000);
+    s.apply(F.otherIncome, 50_000);
     expect(s.num(F.taxableIncome)).toBe(35_000); // 50000 - 15000
 
-    s.apply(F.income, 80_000);
+    s.apply(F.otherIncome, 80_000);
     expect(s.num(F.deduction)).toBe(15_000);     // deduction unchanged
     expect(s.num(F.taxableIncome)).toBe(65_000); // 80000 - 15000
   });
 
   test('Switching from single to MFJ doubles standard deduction', () => {
     // This requires re-running the session with a new filing status context
-    const single = session([{ id: F.income, value: 100_000 }], 'single');
-    const mfj    = session([{ id: F.income, value: 100_000 }], 'married_filing_jointly');
+    const single = session([{ id: F.otherIncome, value: 100_000 }], "single");
+    const mfj = session(
+      [{ id: F.otherIncome, value: 100_000 }],
+      "married_filing_jointly",
+    );
 
     expect(num(single, F.deduction)).toBe(15_000);
     expect(num(mfj,    F.deduction)).toBe(30_000);
@@ -609,7 +664,7 @@ describe('Standard Deduction — Reactivity', () => {
 
   test('Setting isDependent = true then adding earned income updates deduction reactively', () => {
     const s = sessionEngine('single');
-    s.apply(F.income,       8_000);
+    s.apply(F.otherIncome, 8_000);
     s.apply(F.isDependent,  true);
     s.apply(F.earnedIncome, 0);
 
@@ -632,29 +687,32 @@ describe('Standard Deduction — Reactivity', () => {
 describe('Standard Deduction — Edge Cases', () => {
 
   test('Zero income: taxable income = 0 (deduction floors at zero, not negative)', () => {
-    const state = session([{ id: F.income, value: 0 }]);
+    const state = session([{ id: F.otherIncome, value: 0 }]);
     expect(num(state, F.taxableIncome)).toBe(0);
   });
 
   test('Income exactly equal to standard deduction: taxable income = 0', () => {
-    const state = session([{ id: F.income, value: 15_000 }]);
+    const state = session([{ id: F.otherIncome, value: 15_000 }]);
     expect(num(state, F.deduction)).toBe(15_000);
     expect(num(state, F.taxableIncome)).toBe(0);
   });
 
   test('Income one dollar over standard deduction: taxable income = $1', () => {
-    const state = session([{ id: F.income, value: 15_001 }]);
+    const state = session([{ id: F.otherIncome, value: 15_001 }]);
     expect(num(state, F.taxableIncome)).toBe(1);
   });
 
   test('MFJ, both 65+ blind: maximum possible deduction = $30,000 + $6,400 = $36,400', () => {
-    const state = session([
-      { id: F.income,       value: 200_000 },
-      { id: F.primaryAge,   value: 72 },
-      { id: F.primaryBlind, value: true },
-      { id: F.spouseAge,    value: 69 },
-      { id: F.spouseBlind,  value: true },
-    ], 'married_filing_jointly');
+    const state = session(
+      [
+        { id: F.otherIncome, value: 200_000 },
+        { id: F.primaryAge, value: 72 },
+        { id: F.primaryBlind, value: true },
+        { id: F.spouseAge, value: 69 },
+        { id: F.spouseBlind, value: true },
+      ],
+      "married_filing_jointly",
+    );
     // 4 units × $1,600 = $6,400 additional
     expect(num(state, F.deduction)).toBe(36_400);
     expect(num(state, F.taxableIncome)).toBe(163_600);
@@ -666,9 +724,9 @@ describe('Standard Deduction — Edge Cases', () => {
     // Per IRS Pub 501, the cap for dependents is the BASIC standard deduction,
     // and the age/blind additions do not apply.
     const state = session([
-      { id: F.income,       value: 50_000 },
-      { id: F.isDependent,  value: true },
-      { id: F.primaryAge,   value: 67 },
+      { id: F.otherIncome, value: 50_000 },
+      { id: F.isDependent, value: true },
+      { id: F.primaryAge, value: 67 },
       { id: F.earnedIncome, value: 50_000 },
     ]);
     // max($1,350, min($50,000 + $450, $15,000)) = $15,000 (capped at base)
@@ -677,13 +735,16 @@ describe('Standard Deduction — Edge Cases', () => {
 
   test('Primary age 0 (not entered): no additional deduction', () => {
     // Default age is 0 — no additional deduction triggered
-    const state = session([{ id: F.income, value: 60_000 }]);
+    const state = session([{ id: F.otherIncome, value: 60_000 }]);
     expect(num(state, F.deduction)).toBe(15_000);
   });
 
   test('QBI deduction of $0 has no effect on taxable income', () => {
-    const withQbi    = session([{ id: F.income, value: 60_000 }, { id: F.qbi, value: 0 }]);
-    const withoutQbi = session([{ id: F.income, value: 60_000 }]);
+    const withQbi = session([
+      { id: F.otherIncome, value: 60_000 },
+      { id: F.qbi, value: 0 },
+    ]);
+    const withoutQbi = session([{ id: F.otherIncome, value: 60_000 }]);
     expect(num(withQbi, F.taxableIncome)).toBe(num(withoutQbi, F.taxableIncome));
   });
 

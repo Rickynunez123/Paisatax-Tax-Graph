@@ -119,7 +119,8 @@ export class TaxGraphEngineImpl implements TaxGraphEngine {
     for (const def of definitions) {
       this.definitions.set(def.id, def);
     }
-    this.graph = this.buildGraph(definitions);
+    // Rebuild from ALL definitions, not just the new batch
+    this.graph = this.buildGraph(Array.from(this.definitions.values()));
   }
 
   clearNodes(): void {
@@ -135,94 +136,6 @@ export class TaxGraphEngineImpl implements TaxGraphEngine {
       topOrder: [],
     };
     this.spouseInstances = new Map();
-  }
-
-  reinitializeSession(
-    context: {
-      taxYear: string;
-      filingStatus: string;
-      hasSpouse: boolean;
-      sessionKey: string;
-    },
-    existingState: Record<NodeInstanceId, NodeSnapshot>,
-  ): EngineResult {
-    const startedAt = new Date().toISOString();
-    const startMs = Date.now();
-
-    // Rebuild instance graph and spouse map
-    this.instanceGraph = this.buildInstanceGraph(context.hasSpouse);
-    this.spouseInstances = new Map();
-
-    if (context.hasSpouse) {
-      for (const def of this.definitions.values()) {
-        if (def.repeatable && def.owner === NodeOwner.PRIMARY) {
-          this.spouseInstances.set(this.toSpouseId(def.id), def.id);
-        }
-      }
-    }
-
-    const now = new Date().toISOString();
-    const mergedState: Record<NodeInstanceId, NodeSnapshot> = {};
-
-    for (const instanceId of this.instanceGraph.topOrder) {
-      const defId = this.spouseInstances.get(instanceId) ?? instanceId;
-      const def = this.definitions.get(defId);
-      if (!def) continue;
-
-      if (existingState[instanceId]) {
-        // Carry over existing value; mark computed nodes dirty for recomputation
-        const existing = existingState[instanceId];
-        if (isInputNode(def)) {
-          mergedState[instanceId] = existing;
-        } else {
-          // Recompute all computed nodes so aggregator dependencies resolve
-          mergedState[instanceId] = {
-            ...existing,
-            status: NodeStatus.DIRTY,
-            updatedAt: now,
-          };
-        }
-      } else {
-        // New node — initialize with defaults
-        if (isInputNode(def)) {
-          mergedState[instanceId] = {
-            instanceId,
-            value: def.defaultValue,
-            status: NodeStatus.CLEAN,
-            updatedAt: now,
-          };
-        } else {
-          mergedState[instanceId] = {
-            instanceId,
-            value: null,
-            status: NodeStatus.DIRTY,
-            updatedAt: now,
-          };
-        }
-      }
-    }
-
-    const { newState, changes, skipped, visitOrder } = this.runComputationPass(
-      mergedState,
-      context,
-      null,
-    );
-
-    const completedAt = new Date().toISOString();
-    const durationMs = Date.now() - startMs;
-
-    const frame: TraceFrame = {
-      frameIndex: this.frameCounter++,
-      trigger: null,
-      startedAt,
-      completedAt,
-      durationMs,
-      visitOrder,
-      changes,
-      skipped,
-    };
-
-    return this.buildEngineResult(true, frame, newState);
   }
 
   private buildGraph(definitions: NodeDefinition[]): InternalGraph {
@@ -437,6 +350,90 @@ export class TaxGraphEngineImpl implements TaxGraphEngine {
 
     const { newState, changes, skipped, visitOrder } = this.runComputationPass(
       initialState,
+      context,
+      null,
+    );
+
+    const completedAt = new Date().toISOString();
+    const durationMs = Date.now() - startMs;
+
+    const frame: TraceFrame = {
+      frameIndex: this.frameCounter++,
+      trigger: null,
+      startedAt,
+      completedAt,
+      durationMs,
+      visitOrder,
+      changes,
+      skipped,
+    };
+
+    return this.buildEngineResult(true, frame, newState);
+  }
+
+  reinitializeSession(
+    context: {
+      taxYear: string;
+      filingStatus: string;
+      hasSpouse: boolean;
+      sessionKey: string;
+    },
+    existingState: Record<NodeInstanceId, NodeSnapshot>,
+  ): EngineResult {
+    const startedAt = new Date().toISOString();
+    const startMs = Date.now();
+
+    this.instanceGraph = this.buildInstanceGraph(context.hasSpouse);
+    this.spouseInstances = new Map();
+
+    if (context.hasSpouse) {
+      for (const def of this.definitions.values()) {
+        if (def.repeatable && def.owner === NodeOwner.PRIMARY) {
+          this.spouseInstances.set(this.toSpouseId(def.id), def.id);
+        }
+      }
+    }
+
+    const now = new Date().toISOString();
+    const mergedState: Record<NodeInstanceId, NodeSnapshot> = {};
+
+    for (const instanceId of this.instanceGraph.topOrder) {
+      const defId = this.spouseInstances.get(instanceId) ?? instanceId;
+      const def = this.definitions.get(defId);
+      if (!def) continue;
+
+      if (existingState[instanceId]) {
+        const existing = existingState[instanceId];
+        if (isInputNode(def)) {
+          mergedState[instanceId] = existing;
+        } else {
+          mergedState[instanceId] = {
+            ...existing,
+            status: NodeStatus.DIRTY,
+            updatedAt: now,
+          };
+        }
+      } else {
+        if (isInputNode(def)) {
+          mergedState[instanceId] = {
+            instanceId,
+            value: def.defaultValue,
+            status: NodeStatus.CLEAN,
+            updatedAt: now,
+          };
+        } else {
+          mergedState[instanceId] = {
+            instanceId,
+            value: null,
+            status: NodeStatus.DIRTY,
+            updatedAt: now,
+          };
+        }
+      }
+    }
+
+    const { newState, changes, skipped, visitOrder } = this.runComputationPass(
+      mergedState,
       context,
       null,
     );

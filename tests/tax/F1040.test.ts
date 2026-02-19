@@ -4,12 +4,13 @@
  * Updated for:
  * ✅ Standard deduction now COMPUTED (Line 12)
  * ✅ Tax now COMPUTED from taxable income (Line 16)
+ * ✅ Total income (Line 9) now COMPUTED (cannot be set directly)
  *
  * Key changes vs old tests:
+ * - Removed ALL manual inputs to Line 9 (total income). It is computed now.
+ *   Use: f1040.joint.line9input_otherIncome as the input driver.
  * - Removed ALL manual inputs to Line 16 (tax). It is computed now.
  * - Added standard deduction input nodes (age/blind/dependent/QBI) where needed.
- * - Updated assertions: Line 24 = Line 16 + Line 17 (when Line 17 applicable),
- *   otherwise Line 24 = Line 16.
  */
 
 import { TaxGraphEngineImpl } from '../../src/core/graph/engine.js';
@@ -112,7 +113,12 @@ const S2 = {
 };
 
 const F = {
+  // ✅ NEW: use this to drive total income (Line 9)
+  line9input_otherIncome: "f1040.joint.line9input_otherIncome",
+
+  // Line 9 is computed (read-only in tests)
   line9_totalIncome: "f1040.joint.line9_totalIncome",
+
   line10_adjustments: "f1040.joint.line10_adjustmentsToIncome",
   line11_agi: "f1040.joint.line11_adjustedGrossIncome",
   line12_deduction: "f1040.joint.line12_deduction",
@@ -189,7 +195,7 @@ describe('Form 1040 Shell — AGI Calculation', () => {
 
   test("Scenario: No adjustments — AGI equals total income", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 60_000 },
+      { instanceId: F.line9input_otherIncome, value: 60_000 },
     ]);
 
     expect(num(state, F.line9_totalIncome)).toBe(60_000);
@@ -199,7 +205,7 @@ describe('Form 1040 Shell — AGI Calculation', () => {
 
   test("Scenario: HSA deduction reduces AGI", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 80_000 },
+      { instanceId: F.line9input_otherIncome, value: 80_000 },
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 4_300 },
       { instanceId: H.ageAsOfDec31, value: 40 },
@@ -214,7 +220,7 @@ describe('Form 1040 Shell — AGI Calculation', () => {
 
   test("Scenario: Catch-up contribution at age 57 maximizes deduction", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 100_000 },
+      { instanceId: F.line9input_otherIncome, value: 100_000 },
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 5_300 },
       { instanceId: H.ageAsOfDec31, value: 57 },
@@ -227,7 +233,7 @@ describe('Form 1040 Shell — AGI Calculation', () => {
 
   test("Scenario: Employer contributions reduce HSA deduction but not AGI benefit", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 70_000 },
+      { instanceId: F.line9input_otherIncome, value: 70_000 },
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 2_300 },
       { instanceId: H.ageAsOfDec31, value: 40 },
@@ -241,7 +247,7 @@ describe('Form 1040 Shell — AGI Calculation', () => {
 
   test("Scenario: HSA deduction plus manual other adjustment", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 60_000 },
+      { instanceId: F.line9input_otherIncome, value: 60_000 },
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 3_000 },
       { instanceId: H.ageAsOfDec31, value: 32 },
@@ -259,7 +265,7 @@ describe('Form 1040 Shell — AGI Calculation', () => {
 
   test("Scenario: Adjustments cannot make AGI negative", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 1_000 },
+      { instanceId: F.line9input_otherIncome, value: 1_000 },
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 4_300 },
       { instanceId: H.ageAsOfDec31, value: 40 },
@@ -282,7 +288,7 @@ describe('Form 1040 Shell — AGI Calculation', () => {
     });
 
     for (const [id, val] of [
-      [F.line9_totalIncome, 80_000],
+      [F.line9input_otherIncome, 80_000],
       [H.coverageType, "self_only"],
       [H.personalContributions, 4_300],
       [H.ageAsOfDec31, 40],
@@ -306,10 +312,10 @@ describe('Form 1040 Shell — Additional Taxes (Line 17)', () => {
 
   test('Line 17 is SKIPPED when no penalties exist', () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome,       value: 60_000 },
-      { instanceId: H.coverageType,            value: 'self_only' },
-      { instanceId: H.personalContributions,   value: 4_000 },
-      { instanceId: H.ageAsOfDec31,            value: 40 },
+      { instanceId: F.line9input_otherIncome, value: 60_000 },
+      { instanceId: H.coverageType, value: "self_only" },
+      { instanceId: H.personalContributions, value: 4_000 },
+      { instanceId: H.ageAsOfDec31, value: 40 },
     ]);
 
     expect(status(state, F.line17_additionalTax)).toBe(NodeStatus.SKIPPED);
@@ -317,7 +323,7 @@ describe('Form 1040 Shell — Additional Taxes (Line 17)', () => {
 
   test("Line 17 = HSA excess penalty from F5329 via Schedule 2", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 60_000 },
+      { instanceId: F.line9input_otherIncome, value: 60_000 },
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 5_000 },
       { instanceId: H.ageAsOfDec31, value: 30 },
@@ -331,7 +337,7 @@ describe('Form 1040 Shell — Additional Taxes (Line 17)', () => {
 
   test("Line 17 = early distribution penalty via Schedule 2", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 60_000 },
+      { instanceId: F.line9input_otherIncome, value: 60_000 },
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.ageAsOfDec31, value: 40 },
       { instanceId: R.earlyDistributions, value: 10_000 },
@@ -344,7 +350,7 @@ describe('Form 1040 Shell — Additional Taxes (Line 17)', () => {
 
   test("Line 17 = HSA distribution penalty from F8889 via Schedule 2", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 60_000 },
+      { instanceId: F.line9input_otherIncome, value: 60_000 },
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.ageAsOfDec31, value: 40 },
       { instanceId: H.totalDistributions, value: 500 },
@@ -366,7 +372,7 @@ describe('Form 1040 Shell — Total Tax (Line 24)', () => {
 
   test('Total tax = regular tax when no additional taxes', () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 60_000 },
+      { instanceId: F.line9input_otherIncome, value: 60_000 },
       ...baseStdDeductionInputs(40),
     ]);
 
@@ -376,7 +382,7 @@ describe('Form 1040 Shell — Total Tax (Line 24)', () => {
 
   test("Total tax = regular tax + additional taxes", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 60_000 },
+      { instanceId: F.line9input_otherIncome, value: 60_000 },
       ...baseStdDeductionInputs(40),
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.ageAsOfDec31, value: 40 },
@@ -392,7 +398,7 @@ describe('Form 1040 Shell — Total Tax (Line 24)', () => {
 
   test("Total tax when all three penalty types apply", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 80_000 },
+      { instanceId: F.line9input_otherIncome, value: 80_000 },
       ...baseStdDeductionInputs(40),
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 5_000 },
@@ -421,7 +427,7 @@ describe('Form 1040 Shell — Full Vertical Slice', () => {
 
   test("Complete scenario: wages → HSA deduction → AGI → penalties → total tax", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 75_000 },
+      { instanceId: F.line9input_otherIncome, value: 75_000 },
       ...baseStdDeductionInputs(35),
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 5_000 },
@@ -474,7 +480,7 @@ describe('Form 1040 Shell — Full Vertical Slice', () => {
 
   test("Clean return: high earner, max HSA, no penalties", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 120_000 },
+      { instanceId: F.line9input_otherIncome, value: 120_000 },
       ...baseStdDeductionInputs(45),
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 4_300 },
@@ -519,7 +525,7 @@ describe('Form 1040 Shell — Full Chain Reactivity', () => {
     }
 
     for (const [id, val] of [
-      [F.line9_totalIncome, 80_000],
+      [F.line9input_otherIncome, 80_000],
       [H.coverageType, "self_only"],
       [H.personalContributions, 5_000],
       [H.ageAsOfDec31, 35],
@@ -590,9 +596,9 @@ describe('Form 1040 Shell — Full Chain Reactivity', () => {
 
     expect(result.currentState[F.line11_agi]?.value).toBe(0);
 
-    // Now enter wages
+    // Now enter income (drives computed line 9)
     result = engine.process(
-      makeEvent(F.line9_totalIncome, 90_000),
+      makeEvent(F.line9input_otherIncome, 90_000),
       result.currentState,
       context,
     );
@@ -621,7 +627,7 @@ describe('Form 1040 Shell — Full Chain Reactivity', () => {
     }
 
     result = engine.process(
-      makeEvent(F.line9_totalIncome, 100_000),
+      makeEvent(F.line9input_otherIncome, 100_000),
       result.currentState,
       context,
     );
@@ -692,7 +698,7 @@ describe('Form 1040 Shell — Output Integrity', () => {
 
   test("AGI node is F1040_OUTPUTS.adjustedGrossIncome", () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 80_000 },
+      { instanceId: F.line9input_otherIncome, value: 80_000 },
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.personalContributions, value: 4_300 },
       { instanceId: H.ageAsOfDec31, value: 40 },
@@ -703,7 +709,7 @@ describe('Form 1040 Shell — Output Integrity', () => {
 
   test('Total tax node is F1040_OUTPUTS.totalTax', () => {
     const state = applyEvents([
-      { instanceId: F.line9_totalIncome, value: 60_000 },
+      { instanceId: F.line9input_otherIncome, value: 60_000 },
       ...baseStdDeductionInputs(40),
       { instanceId: H.coverageType, value: "self_only" },
       { instanceId: H.ageAsOfDec31, value: 40 },
@@ -711,10 +717,12 @@ describe('Form 1040 Shell — Output Integrity', () => {
       { instanceId: R.exceptionAmount, value: 0 },
     ]);
 
-    // Total tax must equal computed regular tax + penalty
+    // Total tax must equal computed regular tax + penalty (if any)
     const expected =
       num(state, F.line16_tax) + maybeNum(state, F.line17_additionalTax);
     expect(state[F1040_OUTPUTS.totalTax]?.value).toBe(expected);
-  });
+  }
+//////
+);
 
 });

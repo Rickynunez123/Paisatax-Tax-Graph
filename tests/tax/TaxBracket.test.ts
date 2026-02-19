@@ -103,13 +103,18 @@ function sessionEngine(filingStatus = 'single', taxYear = '2025') {
 
 // Node ID shorthands
 const N = {
-  income:        'f1040.joint.line9_totalIncome',
-  primaryAge:    'f1040.joint.line12input_primaryAge',
-  deduction:     'f1040.joint.line12_deduction',
-  taxableIncome: 'f1040.joint.line15_taxableIncome',
-  tax:           'f1040.joint.line16_tax',
-  totalTax:      'f1040.joint.line24_totalTax',
-  additionalTax: 'f1040.joint.line17_additionalTaxes',
+  // ✅ INPUT (write here)
+  otherIncome: "f1040.joint.line9input_otherIncome",
+
+  // ✅ COMPUTED (read/assert only)
+  totalIncome: "f1040.joint.line9_totalIncome",
+
+  taxableIncome: "f1040.joint.line15_taxableIncome",
+  tax: "f1040.joint.line16_tax",
+  deduction: "f1040.joint.line12_deduction",
+  totalTax: "f1040.joint.line24_totalTax",
+  additionalTax: "f1040.joint.line17_additionalTaxes",
+  primaryAge: "f1040.joint.line12input_primaryAge",
 };
 
 const num  = (state: ReturnType<typeof session>, id: string) => state[id]?.value as number;
@@ -289,29 +294,29 @@ describe('Form 1040 Line 16 -- Tax Node (Engine)', () => {
     // Tax: $5,578.50 + 22% * ($45,000 - $48,475) -- WAIT: $45,000 < $48,475
     // Actually $45,000 is in 12% bracket:
     // $1,192.50 + 12% * ($45,000 - $11,925) = $1,192.50 + $3,969 = $5,161.50
-    const state = session([{ id: N.income, value: 60_000 }]);
+    const state = session([{ id: N.otherIncome, value: 60_000 }]);
     expect(num(state, N.taxableIncome)).toBe(45_000);
     expect(num(state, N.tax)).toBe(5_161.50);
   });
 
   test('Line 16 status is CLEAN after computation', () => {
-    const state = session([{ id: N.income, value: 60_000 }]);
+    const state = session([{ id: N.otherIncome, value: 60_000 }]);
     expect(stat(state, N.tax)).toBe(NodeStatus.CLEAN);
   });
 
   test('Line 16 = 0 when taxable income is 0', () => {
     // Income $5,000, single, standard deduction $15,000 -> taxable income 0
-    const state = session([{ id: N.income, value: 5_000 }]);
+    const state = session([{ id: N.otherIncome, value: 5_000 }]);
     expect(num(state, N.taxableIncome)).toBe(0);
     expect(num(state, N.tax)).toBe(0);
   });
 
   test('Line 16 updates reactively when income changes', () => {
     const s = sessionEngine('single');
-    s.apply(N.income, 60_000);
+    s.apply(N.otherIncome, 60_000);
     const tax1 = s.num(N.tax);
 
-    s.apply(N.income, 80_000);
+    s.apply(N.otherIncome, 80_000);
     const tax2 = s.num(N.tax);
 
     expect(tax2).toBeGreaterThan(tax1);
@@ -326,10 +331,10 @@ describe('Form 1040 Line 16 -- Tax Node (Engine)', () => {
     // Taxable = $70,700 - $15,000 = $55,700
     // Tax: $5,578.50 + 22% * ($55,700 - $48,475) = $5,578.50 + $1,589.50 = $7,168
     const state = session([
-      { id: N.income,                                    value: 75_000 },
-      { id: 'f8889.primary.line1_coverageType',           value: 'self_only' },
-      { id: 'f8889.primary.line2_personalContributions',  value: 4_300 },
-      { id: 'f8889.primary.line4input_ageAsOfDec31',      value: 40 },
+      { id: N.otherIncome, value: 75_000 },
+      { id: "f8889.primary.line1_coverageType", value: "self_only" },
+      { id: "f8889.primary.line2_personalContributions", value: 4_300 },
+      { id: "f8889.primary.line4input_ageAsOfDec31", value: 40 },
     ]);
     expect(num(state, 'f1040.joint.line11_adjustedGrossIncome')).toBe(70_700);
     expect(num(state, N.taxableIncome)).toBe(55_700);
@@ -342,7 +347,7 @@ describe('Form 1040 Line 16 -- Tax Node (Engine)', () => {
     // Taxable = $60,000 - $17,000 = $43,000
     // Tax: $1,192.50 + 12% * ($43,000 - $11,925) = $1,192.50 + $3,729 = $4,921.50
     const state = session([
-      { id: N.income,     value: 60_000 },
+      { id: N.otherIncome, value: 60_000 },
       { id: N.primaryAge, value: 67 },
     ]);
     expect(num(state, N.deduction)).toBe(17_000);
@@ -359,7 +364,7 @@ describe('Form 1040 Line 16 -- Tax Node (Engine)', () => {
 describe('Form 1040 Line 24 -- Total Tax (Regular + Additional)', () => {
 
   test('No penalties: total tax = regular tax', () => {
-    const state = session([{ id: N.income, value: 60_000 }]);
+    const state = session([{ id: N.otherIncome, value: 60_000 }]);
     expect(num(state, N.tax)).toBe(num(state, N.totalTax));
   });
 
@@ -367,10 +372,10 @@ describe('Form 1040 Line 24 -- Total Tax (Regular + Additional)', () => {
     // Income $60,000, over-contribute to HSA by $1,000
     // Penalty = 6% * $1,000 = $60
     const state = session([
-      { id: N.income,                                    value: 60_000 },
-      { id: 'f8889.primary.line1_coverageType',           value: 'self_only' },
-      { id: 'f8889.primary.line2_personalContributions',  value: 5_300 }, // $1,000 over limit
-      { id: 'f8889.primary.line4input_ageAsOfDec31',      value: 40 },
+      { id: N.otherIncome, value: 60_000 },
+      { id: "f8889.primary.line1_coverageType", value: "self_only" },
+      { id: "f8889.primary.line2_personalContributions", value: 5_300 }, // $1,000 over limit
+      { id: "f8889.primary.line4input_ageAsOfDec31", value: 40 },
     ]);
 
     const regularTax = num(state, N.tax);
@@ -382,7 +387,7 @@ describe('Form 1040 Line 24 -- Total Tax (Regular + Additional)', () => {
   });
 
   test('F1040_OUTPUTS.totalTax node equals line16 + line17', () => {
-    const state = session([{ id: N.income, value: 100_000 }]);
+    const state = session([{ id: N.otherIncome, value: 100_000 }]);
     const line16 = num(state, N.tax);
     const line17 = num(state, N.additionalTax) ?? 0;
     expect(num(state, F1040_OUTPUTS.totalTax)).toBe(line16 + line17);
@@ -433,11 +438,17 @@ describe('Line 16 -- All Filing Statuses at $80,000 Taxable Income', () => {
 
   test('Engine uses correct bracket for each filing status (integration)', () => {
     // Single
-    const single = session([{ id: N.income, value: 100_000 }], 'single');
+    const single = session([{ id: N.otherIncome, value: 100_000 }], "single");
     // MFJ
-    const mfj    = session([{ id: N.income, value: 100_000 }], 'married_filing_jointly');
+    const mfj = session(
+      [{ id: N.otherIncome, value: 100_000 }],
+      "married_filing_jointly",
+    );
     // HOH
-    const hoh    = session([{ id: N.income, value: 100_000 }], 'head_of_household');
+    const hoh = session(
+      [{ id: N.otherIncome, value: 100_000 }],
+      "head_of_household",
+    );
 
     // After standard deduction:
     // Single: taxable = 100,000 - 15,000 = 85,000
@@ -498,8 +509,16 @@ describe('Line 16 -- Tax Year Differences (2024 vs 2025)', () => {
   });
 
   test('2024 engine session uses 2024 brackets', () => {
-    const state24 = session([{ id: N.income, value: 80_000 }], 'single', '2024');
-    const state25 = session([{ id: N.income, value: 80_000 }], 'single', '2025');
+    const state24 = session(
+      [{ id: N.otherIncome, value: 80_000 }],
+      "single",
+      "2024",
+    );
+    const state25 = session(
+      [{ id: N.otherIncome, value: 80_000 }],
+      "single",
+      "2025",
+    );
     // 2024 standard deduction is $14,600, so taxable = $65,400
     // 2025 standard deduction is $15,000, so taxable = $65,000
     expect(num(state24, N.taxableIncome)).toBe(65_400);
@@ -557,43 +576,43 @@ describe('Line 16 -- Bracket Boundary Precision', () => {
 describe('Line 16 -- Reactivity', () => {
 
   test('Increasing income pushes into higher bracket', () => {
-    const s = sessionEngine('single');
+    const s = sessionEngine("single");
 
     // Start in 12% bracket
-    s.apply(N.income, 40_000);  // taxable = 25,000 -> in 12%
+    s.apply(N.otherIncome, 40_000); // taxable = 25,000 -> in 12%
     const tax1 = s.num(N.tax);
 
     // Push into 22% bracket
-    s.apply(N.income, 80_000);  // taxable = 65,000 -> in 22%
+    s.apply(N.otherIncome, 80_000); // taxable = 65,000 -> in 22%
     const tax2 = s.num(N.tax);
 
     expect(tax2).toBeGreaterThan(tax1);
     // Tax on $25,000: $1,192.50 + 12% * ($25,000 - $11,925) = $1,192.50 + $1,569 = $2,761.50
-    expect(tax1).toBe(2_761.50);
+    expect(tax1).toBe(2_761.5);
     // Tax on $65,000: $5,578.50 + 22% * ($65,000 - $48,475) = $5,578.50 + $3,635.50 = $9,214
-    expect(tax2).toBe(9_214.00);
+    expect(tax2).toBe(9_214.0);
   });
 
   test('Adding HSA deduction updates taxable income, brackets, and tax', () => {
-    const s = sessionEngine('single');
-    s.apply(N.income, 55_000);  // taxable = 40,000 (12% bracket)
+    const s = sessionEngine("single");
+    s.apply(N.otherIncome, 55_000); // taxable = 40,000 (12% bracket)
     const taxBefore = s.num(N.tax);
 
     // Add HSA deduction -- drops taxable income further into 12% bracket
-    s.apply('f8889.primary.line1_coverageType',          'self_only');
-    s.apply('f8889.primary.line2_personalContributions', 4_300);
-    s.apply('f8889.primary.line4input_ageAsOfDec31',     40);
+    s.apply("f8889.primary.line1_coverageType", "self_only");
+    s.apply("f8889.primary.line2_personalContributions", 4_300);
+    s.apply("f8889.primary.line4input_ageAsOfDec31", 40);
     // Now AGI = $55,000 - $4,300 = $50,700; taxable = $50,700 - $15,000 = $35,700
     const taxAfter = s.num(N.tax);
 
     expect(taxAfter).toBeLessThan(taxBefore);
     // Tax on $35,700: $1,192.50 + 12% * ($35,700 - $11,925) = $1,192.50 + $2,853 = $4,045.50
-    expect(taxAfter).toBe(4_045.50);
+    expect(taxAfter).toBe(4_045.5);
   });
 
   test('Standard deduction change (age 65) propagates through to Line 16', () => {
     const s = sessionEngine('single');
-    s.apply(N.income, 60_000);
+    s.apply(N.otherIncome, 60_000);
 
     // Without age 65+: deduction = $15,000, taxable = $45,000
     const taxBefore = s.num(N.tax);
@@ -634,10 +653,10 @@ describe('Line 16 -- Complete Return Scenarios', () => {
      *   Total tax = $3,685.50 (no penalties)
      */
     const state = session([
-      { id: N.income,                                    value: 52_000 },
-      { id: 'f8889.primary.line1_coverageType',           value: 'self_only' },
-      { id: 'f8889.primary.line2_personalContributions',  value: 4_300 },
-      { id: 'f8889.primary.line4input_ageAsOfDec31',      value: 29 },
+      { id: N.otherIncome, value: 52_000 },
+      { id: "f8889.primary.line1_coverageType", value: "self_only" },
+      { id: "f8889.primary.line2_personalContributions", value: 4_300 },
+      { id: "f8889.primary.line4input_ageAsOfDec31", value: 29 },
     ]);
 
     expect(num(state, 'f1040.joint.line11_adjustedGrossIncome')).toBe(47_700);
@@ -664,14 +683,17 @@ describe('Line 16 -- Complete Return Scenarios', () => {
      *   Early dist penalty: 10% * $10,000 = $1,000
      *   Total tax: $9,297 + $1,000 = $10,297
      */
-    const state = session([
-      { id: N.income,                                    value: 120_000 },
-      { id: 'f8889.primary.line1_coverageType',           value: 'family' },
-      { id: 'f8889.primary.line2_personalContributions',  value: 8_550 },
-      { id: 'f8889.primary.line4input_ageAsOfDec31',      value: 35 },
-      { id: 'f5329.primary.line1_earlyDistributions',  value: 10_000 },
-      { id: 'f5329.primary.line2_exceptionCode',          value: 'none' },
-    ], 'married_filing_jointly');
+    const state = session(
+      [
+        { id: N.otherIncome, value: 120_000 },
+        { id: "f8889.primary.line1_coverageType", value: "family" },
+        { id: "f8889.primary.line2_personalContributions", value: 8_550 },
+        { id: "f8889.primary.line4input_ageAsOfDec31", value: 35 },
+        { id: "f5329.primary.line1_earlyDistributions", value: 10_000 },
+        { id: "f5329.primary.line2_exceptionCode", value: "none" },
+      ],
+      "married_filing_jointly",
+    );
 
     expect(num(state, 'f1040.joint.line11_adjustedGrossIncome')).toBe(111_450);
     expect(num(state, N.taxableIncome)).toBe(81_450);
@@ -693,17 +715,21 @@ describe('Line 16 -- Complete Return Scenarios', () => {
      *   Taxable income = $45,000 - $16,550 = $28,450
      *   Tax: $1,160 + 12% * ($28,450 - $11,600) = $1,160 + $2,022 = $3,182
      */
-    const state = session([
-      { id: N.income,     value: 45_000 },
-      { id: N.primaryAge, value: 68 },
-    ], 'single', '2024');
+    const state = session(
+      [
+        { id: N.otherIncome, value: 45_000 },
+        { id: N.primaryAge, value: 68 },
+      ],
+      "single",
+      "2024",
+    );
 
     expect(num(state, N.taxableIncome)).toBe(28_450);
     expect(num(state, N.tax)).toBe(3_182.00);
   });
 
   test('F1040_OUTPUTS.taxableIncome and totalTax point to correct computed values', () => {
-    const state = session([{ id: N.income, value: 80_000 }]);
+    const state = session([{ id: N.otherIncome, value: 80_000 }]);
     // Verify the output constants resolve to real computed nodes
     expect(state[F1040_OUTPUTS.taxableIncome]?.status).toBe(NodeStatus.CLEAN);
     expect(state[F1040_OUTPUTS.totalTax]?.status).toBe(NodeStatus.CLEAN);

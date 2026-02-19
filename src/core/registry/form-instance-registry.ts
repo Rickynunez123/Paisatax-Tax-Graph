@@ -45,14 +45,11 @@
  *   const result = registry.removeSlot('w2', NodeOwner.PRIMARY, 1, sessionContext, currentState);
  */
 
-import type {
-  NodeDefinition,
-  NodeOwner,
-  NodeInstanceId,
-  NodeSnapshot,
-} from "../../core/graph/node.types";
-// import type { EngineResult } from '../../../core/graph/engine.types'
+
+import type { NodeDefinition, NodeOwner, NodeInstanceId, NodeSnapshot } from "../graph/node.types";
+// import type { EngineResult } from '../../../core/graph/engine.types';
 import type { EngineResult } from "../graph/engine.types";
+// import type { TaxGraphEngineImpl } from '../../../core/graph/engine';
 import { TaxGraphEngineImpl } from "../graph/engine";
 
 // ─────────────────────────────────────────────────────────────────────────────
