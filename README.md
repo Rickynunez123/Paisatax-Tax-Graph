@@ -27,3 +27,7 @@ A is a depndency for everyone
 
 So we start with A, then with D that has depndency of A, then H
 So once is build, then we need to traverse according to the nodes 
+
+
+# Compile everything in dist for routing express server 
+npm run build

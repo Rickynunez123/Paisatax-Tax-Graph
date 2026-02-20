@@ -1,15 +1,24 @@
 {
   "name": "paisatax-tax-graph",
   "version": "1.0.0",
-  "main": "index.js",
-"scripts": {
-  "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-  "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch"
-},
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch"
+  },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^25.2.3",
@@ -17,6 +26,5 @@
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
-  },
-  "type": "module"
+  }
 }

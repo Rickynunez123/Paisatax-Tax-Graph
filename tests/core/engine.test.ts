@@ -45,17 +45,16 @@ import type {
 function makeInput(id: string, defaultValue: number = 0): InputNodeDefinition {
   return {
     id,
-    kind:               NodeKind.INPUT,
-    label:              `Input ${id}`,
-    description:        `Test input node ${id}`,
-    valueType:          NodeValueType.CURRENCY,
-    allowNegative:      false,
-    owner:              NodeOwner.JOINT,
-    repeatable:         false,
-    applicableTaxYears: ['2025'],
-    classifications:    ['intermediate'],
-    irsCitation:        { form: 'test', line: '0' },
-    source:             InputSource.PREPARER,
+    kind: NodeKind.INPUT,
+    label: `Input ${id}`,
+    description: `Test input node ${id}`,
+    valueType: NodeValueType.CURRENCY,
+    allowNegative: false,
+    owner: NodeOwner.JOINT,
+    repeatable: false,
+    applicableTaxYears: ["2025"],
+    classifications: ["intermediate"],
+    source: InputSource.PREPARER,
     defaultValue,
   };
 }
@@ -68,20 +67,18 @@ function makeComputed(
 ): ComputedNodeDefinition {
   return {
     id,
-    kind:               NodeKind.COMPUTED,
-    label:              `Computed ${id}`,
-    description:        `Test computed node ${id}`,
-    valueType:          NodeValueType.CURRENCY,
-    allowNegative:      false,
-    owner:              NodeOwner.JOINT,
-    repeatable:         false,
-    applicableTaxYears: ['2025'],
-    classifications:    ['intermediate'],
-    irsCitation:        { form: 'test', line: '0' },
+    kind: NodeKind.COMPUTED,
+    label: `Computed ${id}`,
+    description: `Test computed node ${id}`,
+    valueType: NodeValueType.CURRENCY,
+    allowNegative: false,
+    owner: NodeOwner.JOINT,
+    repeatable: false,
+    applicableTaxYears: ["2025"],
+    classifications: ["intermediate"],
     dependencies,
     compute,
     ...(isApplicable !== undefined ? { isApplicable } : {}),
-
   };
 }
 
