@@ -76,7 +76,13 @@ describe('Form 8863 — American Opportunity Credit (AOTC)', () => {
   test('1. Single student, $4,000+ expenses, below phase-out → $2,500 max', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 50_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      50_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.aotcNumStudents', 1);
     state = setInput(engine, state, session, 'f8863.joint.aotcQualifiedExpenses', 6_000);
 
@@ -92,7 +98,13 @@ describe('Form 8863 — American Opportunity Credit (AOTC)', () => {
   test('2. Single student, $3,000 expenses → $2,000 + $250 = $2,250', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 50_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      50_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.aotcNumStudents', 1);
     state = setInput(engine, state, session, 'f8863.joint.aotcQualifiedExpenses', 3_000);
 
@@ -107,7 +119,13 @@ describe('Form 8863 — American Opportunity Credit (AOTC)', () => {
   test('3. Single filer, MAGI $85,000 → 50% phase-out', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 85_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      85_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.aotcNumStudents', 1);
     state = setInput(engine, state, session, 'f8863.joint.aotcQualifiedExpenses', 4_000);
 
@@ -122,7 +140,13 @@ describe('Form 8863 — American Opportunity Credit (AOTC)', () => {
   test('4. Single filer, MAGI $90,000 (at ceiling) → no credit', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 90_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      90_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.aotcNumStudents', 1);
     state = setInput(engine, state, session, 'f8863.joint.aotcQualifiedExpenses', 4_000);
 
@@ -134,7 +158,13 @@ describe('Form 8863 — American Opportunity Credit (AOTC)', () => {
   test('5. MFJ, 2 students, $8,000 total, MAGI $170,000 (within MFJ phase-out)', () => {
     const { engine, session } = makeEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 170_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      170_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.aotcNumStudents', 2);
     state = setInput(engine, state, session, 'f8863.joint.aotcQualifiedExpenses', 8_000);
 
@@ -151,7 +181,13 @@ describe('Form 8863 — American Opportunity Credit (AOTC)', () => {
   test('6. MFS → no AOTC credit', () => {
     const { engine, session } = makeEngine('married_filing_separately');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 50_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      50_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.aotcNumStudents', 1);
     state = setInput(engine, state, session, 'f8863.joint.aotcQualifiedExpenses', 4_000);
 
@@ -163,7 +199,13 @@ describe('Form 8863 — American Opportunity Credit (AOTC)', () => {
   test('7. Refundable ineligible flag → all credit becomes nonrefundable', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 50_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      50_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.aotcNumStudents', 1);
     state = setInput(engine, state, session, 'f8863.joint.aotcQualifiedExpenses', 4_000);
     // Mark as ineligible for refundable (e.g. under-24 dependent student rule)
@@ -186,7 +228,13 @@ describe('Form 8863 — Lifetime Learning Credit (LLC)', () => {
   test('9. $8,000 LLC expenses → $1,600 credit (20% × $8,000)', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 50_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      50_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.llcQualifiedExpenses', 8_000);
 
     expect(val(state, 'f8863.joint.llcTentativeCredit')).toBe(1_600);
@@ -199,7 +247,13 @@ describe('Form 8863 — Lifetime Learning Credit (LLC)', () => {
   test('10. $12,000 LLC expenses → capped at $10,000 → $2,000 max', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 50_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      50_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.llcQualifiedExpenses', 12_000);
 
     expect(val(state, 'f8863.joint.llcTentativeCredit')).toBe(2_000);
@@ -209,7 +263,13 @@ describe('Form 8863 — Lifetime Learning Credit (LLC)', () => {
   test('11. Single MAGI $83,000, LLC $10,000 → 70% allowed = $1,400', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 83_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      83_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.llcQualifiedExpenses', 10_000);
 
     // Phase-out: excess = $3,000, range = $10,000 → 70% allowed
@@ -220,7 +280,13 @@ describe('Form 8863 — Lifetime Learning Credit (LLC)', () => {
   test('12. MAGI $95,000 single → LLC = 0 (above ceiling)', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 95_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      95_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.llcQualifiedExpenses', 10_000);
 
     expect(val(state, 'f8863.joint.llcPhaseOutMultiplier')).toBe(0);
@@ -237,7 +303,13 @@ describe('Form 8863 — Combined AOTC + LLC', () => {
   test('13. AOTC for student A + LLC for student B → both credits appear', () => {
     const { engine, session } = makeEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     // Student A: AOTC, freshman
     state = setInput(engine, state, session, 'f8863.joint.aotcNumStudents', 1);
     state = setInput(engine, state, session, 'f8863.joint.aotcQualifiedExpenses', 4_000);
@@ -257,7 +329,13 @@ describe('Form 8863 — Combined AOTC + LLC', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
     // Very low income → tiny tax liability
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 12_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      12_000,
+    );
     state = setInput(engine, state, session, 'f8863.joint.llcQualifiedExpenses', 10_000);
 
     const taxLiability = val(state, 'f1040.joint.line24_totalTax');

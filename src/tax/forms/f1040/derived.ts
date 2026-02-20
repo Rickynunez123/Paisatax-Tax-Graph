@@ -7,7 +7,7 @@ import {
 
 
 
-const APPLICABLE_YEARS = ['2025'];
+const APPLICABLE_YEARS = ["2024", "2025"];
 const FORM_ID          = 'f1040';
 
 function safeNum(value: unknown): number {
@@ -62,29 +62,30 @@ function safeNum(value: unknown): number {
  *   Schedule 8812 Instructions — Line 18a (earned income definition)
  */
 export const earnedIncome: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.earnedIncome`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 — Earned Income (for Credit Calculations)',
-  description:        'Composite earned income used by Form 2441, Form 8812, and EIC. Includes W-2 wages and other earned income (SE proxy). Excludes unearned income (interest, dividends, capital gains, pensions). Will expand as Schedule C/F/SE are implemented.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.earnedIncome`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 — Earned Income (for Credit Calculations)",
+  description:
+    "Composite earned income used by Form 2441, Form 8812, and EIC. Includes W-2 wages and other earned income (SE proxy). Excludes unearned income (interest, dividends, capital gains, pensions). Will expand as Schedule C/F/SE are implemented.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['income.earned'],
+  classifications: ["income.earned"],
   dependencies: [
     `${FORM_ID}.joint.line1a_w2Wages`,
-    `${FORM_ID}.joint.line9input_otherIncome`,
-    // Add future earned income sources here as they are implemented:
+    "schedule1.joint.line3_businessIncome",
+    // Add future earned income sources here:
+    // 'schedule1.joint.line5_rentalIncome',  ← NO, rental is NOT earned income
     // `${FORM_ID}.joint.scheduleC_netProfit`,
     // `${FORM_ID}.joint.scheduleF_netProfit`,
-    // `${FORM_ID}.joint.line1b_householdWages`,
   ],
   compute: (ctx) => {
-    const w2    = safeNum(ctx.get(`${FORM_ID}.joint.line1a_w2Wages`));
-    const other = safeNum(ctx.get(`${FORM_ID}.joint.line9input_otherIncome`));
-    // Add future earned income lines here as they are implemented:
-    // const schedC = safeNum(ctx.get(`${FORM_ID}.joint.scheduleC_netProfit`));
-    return w2 + other;
+    const w2 = safeNum(ctx.get(`${FORM_ID}.joint.line1a_w2Wages`));
+    const businessIncome = safeNum(
+      ctx.get("schedule1.joint.line3_businessIncome"),
+    );
+    return w2 + Math.max(0, businessIncome); // floor at 0 — losses don't reduce earned income
   },
 };

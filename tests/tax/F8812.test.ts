@@ -75,7 +75,12 @@ describe('Form 8812 — Child Tax Credit', () => {
     let state = engine.initializeSession(SESSION).currentState;
 
     // $120,000 wages → enough tax liability
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 120_000);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      120_000,
+    );
     // 2 qualifying children
     state = setInput(engine, state, 'f8812.joint.line4_numQualifyingChildren', 2);
 
@@ -102,7 +107,12 @@ describe('Form 8812 — Child Tax Credit', () => {
     let state = engine.initializeSession(SESSION).currentState;
 
     // Low wages → small tax liability, can't use full CTC
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 25_000);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      25_000,
+    );
     state = setInput(engine, state, 'f8812.joint.line4_numQualifyingChildren', 2);
 
     const nonRefundable = getVal(state, F8812_OUTPUTS.nonRefundableCredit);
@@ -123,7 +133,12 @@ describe('Form 8812 — Child Tax Credit', () => {
     let state = engine.initializeSession(SESSION).currentState;
 
     // $410,000 income → excess = $10,000 → rounded $10,000 → reduction = 10 × $50 = $500
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 410_000);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      410_000,
+    );
     state = setInput(engine, state, 'f8812.joint.line4_numQualifyingChildren', 2);
 
     expect(getVal(state, 'f8812.joint.line11_phaseOutReduction')).toBe(500);
@@ -138,7 +153,12 @@ describe('Form 8812 — Child Tax Credit', () => {
     // $444,000 → excess = $44,000 → rounded = $44,000 → reduction = 44 × $50 = $2,200
     // But we have 2 children → initial credit $4,400
     // $4,400 - $2,200 = $2,200 remaining
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 444_000);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      444_000,
+    );
     state = setInput(engine, state, 'f8812.joint.line4_numQualifyingChildren', 2);
 
     expect(getVal(state, 'f8812.joint.line11_phaseOutReduction')).toBe(2_200);
@@ -151,7 +171,12 @@ describe('Form 8812 — Child Tax Credit', () => {
 
     // 1 child → initial credit $2,200
     // Need excess > $44,000 for full phase-out: MAGI > $444,000
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 450_000);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      450_000,
+    );
     state = setInput(engine, state, 'f8812.joint.line4_numQualifyingChildren', 1);
 
     // excess = $50,000 → rounded → reduction = 50 × $50 = $2,500 > $2,200
@@ -164,7 +189,12 @@ describe('Form 8812 — Child Tax Credit', () => {
     const engine = makeEngine();
     let state = engine.initializeSession(SESSION).currentState;
 
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, 'f8812.joint.line6_numOtherDependents', 1);
 
     // ODC = $500, no CTC
@@ -179,7 +209,12 @@ describe('Form 8812 — Child Tax Credit', () => {
     const engine = makeEngine();
     let state = engine.initializeSession(SESSION).currentState;
 
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, 'f8812.joint.line4_numQualifyingChildren', 2);
     state = setInput(engine, state, 'f8812.joint.line6_numOtherDependents', 1);
 
@@ -192,7 +227,12 @@ describe('Form 8812 — Child Tax Credit', () => {
     let state = engine.initializeSession(SESSION).currentState;
 
     // $100,000 wages
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, 'f8812.joint.line4_numQualifyingChildren', 3);
 
     // Per-child ACTC cap = 3 × $1,700 = $5,100
@@ -206,7 +246,12 @@ describe('Form 8812 — Child Tax Credit', () => {
     const engine = makeEngine();
     let state = engine.initializeSession(SESSION).currentState;
 
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     // Default: 0 qualifying children, 0 other dependents
 
     expect(getVal(state, 'f8812.joint.line8_initialCredit')).toBe(0);
@@ -219,7 +264,12 @@ describe('Form 8812 — Child Tax Credit', () => {
     let state = engine.initializeSession(SESSION).currentState;
 
     // Very low income — at threshold
-    state = setInput(engine, state, 'f1040.joint.line9input_otherIncome', 2_500);
+    state = setInput(
+      engine,
+      state,
+      "schedule1.joint.line3_businessIncome",
+      2_500,
+    );
     state = setInput(engine, state, 'f8812.joint.line4_numQualifyingChildren', 2);
 
     // Earned income above threshold = $0 → ACTC formula = 0
@@ -244,7 +294,7 @@ test('Single filer phase-out threshold — $200,000', () => {
       singleSession,
     ).currentState;
 
-  state = setLocal(state, 'f1040.joint.line9input_otherIncome', 205_000);
+  state = setLocal(state, "schedule1.joint.line3_businessIncome", 205_000);
   state = setLocal(state, 'f8812.joint.line4_numQualifyingChildren', 1);
 
   expect(getVal(state, 'f8812.joint.line11_phaseOutReduction')).toBe(250);

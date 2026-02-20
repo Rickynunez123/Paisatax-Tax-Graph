@@ -100,7 +100,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('25. Single, AGI $20,000 → 50% rate', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.5);
@@ -109,7 +115,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('26. Single, AGI $21,750 → 50% rate (at boundary)', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 21_750);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      21_750,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.5);
@@ -118,7 +130,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('27. Single, AGI $21,751 → 20% rate (just above 50% threshold)', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 21_751);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      21_751,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.2);
@@ -127,7 +145,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('28. Single, AGI $23,750 → 20% rate (at boundary)', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 23_750);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      23_750,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.2);
@@ -136,7 +160,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('29. Single, AGI $23,751 → 10% rate', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 23_751);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      23_751,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.1);
@@ -145,7 +175,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('30. Single, AGI $36,500 → 10% rate (at boundary)', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 36_500);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      36_500,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.1);
@@ -154,7 +190,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('31. Single, AGI $36,501 → 0% rate, credit = 0', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 36_501);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      36_501,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0);
@@ -164,7 +206,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('32. MFJ, AGI $43,500 → 50% rate', () => {
     const { engine, session } = make8880Engine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 43_500);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      43_500,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.5);
@@ -173,7 +221,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('33. MFJ, AGI $73,000 → 10% rate (at boundary)', () => {
     const { engine, session } = make8880Engine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 73_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      73_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.1);
@@ -182,7 +236,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('34. MFJ, AGI $73,001 → 0% rate, credit = 0', () => {
     const { engine, session } = make8880Engine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 73_001);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      73_001,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0);
@@ -192,7 +252,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('35. HoH, AGI $32,625 → 50% rate', () => {
     const { engine, session } = make8880Engine('head_of_household');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 32_625);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      32_625,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.5);
@@ -201,7 +267,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('36. HoH, AGI $54,750 → 10% rate (at boundary)', () => {
     const { engine, session } = make8880Engine('head_of_household');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 54_750);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      54_750,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.1);
@@ -210,7 +282,13 @@ describe("Form 8880 — Saver's Credit Rate Lookup", () => {
   test('37. HoH, AGI $54,751 → 0% rate, credit = 0', () => {
     const { engine, session } = make8880Engine('head_of_household');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 54_751);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      54_751,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0);
@@ -226,7 +304,13 @@ describe('Form 8880 — Contribution Cap and Distribution Offset', () => {
   test('38. Primary contribution $2,000 exactly → no cap applied, qualifying = $2,000', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line3_primaryQualifyingAmount')).toBe(2_000);
@@ -235,7 +319,13 @@ describe('Form 8880 — Contribution Cap and Distribution Offset', () => {
   test('39. Primary contribution $3,000 → capped at $2,000', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 3_000);
 
     expect(num(state, 'f8880.joint.line3_primaryQualifyingAmount')).toBe(2_000);
@@ -244,7 +334,13 @@ describe('Form 8880 — Contribution Cap and Distribution Offset', () => {
   test('40. Contributions $2,000, distributions $500 → qualifying = $1,500', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
     state = setInput(engine, state, session, 'f8880.joint.line2_primaryDistributions', 500);
 
@@ -255,7 +351,13 @@ describe('Form 8880 — Contribution Cap and Distribution Offset', () => {
   test('41. Distributions exceed capped contribution → qualifying = $0', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
     state = setInput(engine, state, session, 'f8880.joint.line2_primaryDistributions', 2_500);
 
@@ -266,7 +368,13 @@ describe('Form 8880 — Contribution Cap and Distribution Offset', () => {
   test('42. MFJ — primary $2,000 + spouse $2,000 → Line 4 = $4,000', () => {
     const { engine, session } = make8880Engine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 40_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      40_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
     state = setInput(engine, state, session, 'f8880.joint.line1b_spouseContributions', 2_000);
 
@@ -279,7 +387,13 @@ describe('Form 8880 — Contribution Cap and Distribution Offset', () => {
   test('43. MFJ — spouse contributions = 0 → only primary counts', () => {
     const { engine, session } = make8880Engine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 40_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      40_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line4_totalQualifyingContributions')).toBe(2_000);
@@ -289,7 +403,13 @@ describe('Form 8880 — Contribution Cap and Distribution Offset', () => {
   test('44. MFJ — spouse distributions reduce spouse qualifying amount independently', () => {
     const { engine, session } = make8880Engine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 40_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      40_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
     state = setInput(engine, state, session, 'f8880.joint.line1b_spouseContributions', 2_000);
     state = setInput(engine, state, session, 'f8880.joint.line2b_spouseDistributions', 1_000);
@@ -309,7 +429,13 @@ describe('Form 8880 — Tax Liability Cap (Nonrefundable)', () => {
   test('45. Tentative credit exceeds tax liability → capped at tax', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 12_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      12_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     const tentative = num(state, 'f8880.joint.line7_tentativeCredit');
@@ -335,7 +461,13 @@ test('47. Tax clearly exceeds tentative credit → full tentative credit allowed
   let state = engine.initializeSession(session).currentState;
 
   // MFJ at 50% tier boundary, but high enough taxable income to have tax > $1,000
-  state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 43_500);
+  state = setInput(
+    engine,
+    state,
+    session,
+    "schedule1.joint.line3_businessIncome",
+    43_500,
+  );
 
   // Qualifying contributions: $2,000 → tentative = $2,000 × 50% = $1,000
   state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
@@ -357,7 +489,13 @@ describe('Form 8880 — isApplicable Gate', () => {
   test('48. Rate = 0% (AGI too high) → credit node SKIPPED, value null', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 40_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      40_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 2_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0);
@@ -367,7 +505,13 @@ describe('Form 8880 — isApplicable Gate', () => {
   test('49. Contributions = 0 → credit node SKIPPED, value null', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
 
     expect(state[F8880_OUTPUTS.credit]?.value).toBeNull();
   });
@@ -375,7 +519,13 @@ describe('Form 8880 — isApplicable Gate', () => {
   test('50. Rate > 0 and contributions > 0 → credit is computed and non-null', () => {
     const { engine, session } = make8880Engine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'f8880.joint.line1_primaryContributions', 1_000);
 
     expect(num(state, 'f8880.joint.line6_creditRate')).toBe(0.5);

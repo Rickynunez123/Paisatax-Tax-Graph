@@ -104,7 +104,13 @@ describe('Schedule EIC — Eligibility Guards', () => {
   test('1. MFS filer → isMFSIneligible = true, credit = 0', () => {
     const { engine, session } = makeEICEngine('married_filing_separately');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 30_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      30_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
 
     expect(val(state, 'schedule-eic.joint.isMFSIneligible')).toBe(true);
@@ -116,7 +122,13 @@ describe('Schedule EIC — Eligibility Guards', () => {
   test('2. Investment income $12,000 > $11,950 limit → ineligible, credit = 0', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 30_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      30_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
     state = setInput(engine, state, session, 'schedule-eic.joint.inputInvestmentIncome', 12_000);
 
@@ -128,7 +140,13 @@ describe('Schedule EIC — Eligibility Guards', () => {
   test('3. Childless EIC, age 24 → age disqualifier fires, credit = 0', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 15_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      15_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 24);
     // 0 qualifying children (default)
 
@@ -140,7 +158,13 @@ describe('Schedule EIC — Eligibility Guards', () => {
   test('4. Childless EIC, age 65 → age disqualifier fires, credit = 0', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 15_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      15_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 65);
 
     expect(val(state, 'schedule-eic.joint.isChildlessAgeDisqualified')).toBe(true);
@@ -150,7 +174,13 @@ describe('Schedule EIC — Eligibility Guards', () => {
   test('5. Childless EIC, age 25 → eligible (lower boundary)', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 15_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      15_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 25);
 
     expect(val(state, 'schedule-eic.joint.isChildlessAgeDisqualified')).toBe(false);
@@ -161,7 +191,13 @@ describe('Schedule EIC — Eligibility Guards', () => {
   test('6. Childless EIC, age 64 → eligible (upper boundary)', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 15_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      15_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 64);
 
     expect(val(state, 'schedule-eic.joint.isChildlessAgeDisqualified')).toBe(false);
@@ -172,7 +208,13 @@ describe('Schedule EIC — Eligibility Guards', () => {
   test('7. Age disqualifier is ignored when qualifying children are present', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 30_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      30_000,
+    );
     // Age 24 would disqualify childless EIC, but children are present
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 24);
     state = setInput(engine, state, session, 'schedule-eic.joint.inputNumQualifyingChildren', 1);
@@ -192,7 +234,13 @@ describe('Schedule EIC — Worksheet A (No Qualifying Children)', () => {
   test('8. Childless, single, $8,000 earned income → in phase-in zone, credit > 0', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 8_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      8_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
 
     // Earned income is in the phase-in zone (below $8,490 max-credit plateau)
@@ -206,7 +254,13 @@ describe('Schedule EIC — Worksheet A (No Qualifying Children)', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
     // $10,000 is between the $8,490 phase-in limit and $10,620 phase-out start
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 10_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      10_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
 
     const credit = num(state, SCHEDULE_EIC_OUTPUTS.credit);
@@ -218,7 +272,13 @@ describe('Schedule EIC — Worksheet A (No Qualifying Children)', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
     // Phase-out starts at $10,620, ends at $19,104 for single
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 15_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      15_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
 
     const credit = num(state, SCHEDULE_EIC_OUTPUTS.credit);
@@ -229,7 +289,13 @@ describe('Schedule EIC — Worksheet A (No Qualifying Children)', () => {
   test('11. Childless, MFJ — $17,000 earned income, phase-out starts at $17,730 (higher than single)', () => {
     const { engine, session } = makeEICEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 17_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      17_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
 
     // MFJ phase-out start = $17,730; $17,000 is still at plateau
@@ -240,7 +306,13 @@ describe('Schedule EIC — Worksheet A (No Qualifying Children)', () => {
   test('12. Childless, single, $20,000 → above phase-out end ($19,104), credit = 0', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
 
     expect(num(state, SCHEDULE_EIC_OUTPUTS.credit)).toBe(0);
@@ -256,7 +328,13 @@ describe('Schedule EIC — Worksheet A (With Qualifying Children)', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
     // 1-child plateau: $12,730–$23,350; $20,000 sits in the middle
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputNumQualifyingChildren', 1);
 
     const phaseIn = num(state, 'schedule-eic.joint.worksheetLine2_phaseInCredit');
@@ -268,7 +346,13 @@ describe('Schedule EIC — Worksheet A (With Qualifying Children)', () => {
   test('14. 1 child, single, $40,000 → in phase-out zone (starts $23,350)', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 40_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      40_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputNumQualifyingChildren', 1);
 
     const credit = num(state, SCHEDULE_EIC_OUTPUTS.credit);
@@ -279,7 +363,13 @@ describe('Schedule EIC — Worksheet A (With Qualifying Children)', () => {
   test('15. 1 child, single, $52,000 → above phase-out end ($50,434), credit = 0', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 52_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      52_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputNumQualifyingChildren', 1);
 
     expect(num(state, SCHEDULE_EIC_OUTPUTS.credit)).toBe(0);
@@ -289,7 +379,13 @@ describe('Schedule EIC — Worksheet A (With Qualifying Children)', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
     // 2-child plateau: $17,880–$23,350
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputNumQualifyingChildren', 2);
 
     expect(num(state, 'schedule-eic.joint.worksheetLine2_phaseInCredit')).toBe(7_152);
@@ -299,7 +395,13 @@ describe('Schedule EIC — Worksheet A (With Qualifying Children)', () => {
   test('17. 2 children, single, $58,000 → above phase-out end ($57,310), credit = 0', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 58_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      58_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputNumQualifyingChildren', 2);
 
     expect(num(state, SCHEDULE_EIC_OUTPUTS.credit)).toBe(0);
@@ -309,7 +411,13 @@ describe('Schedule EIC — Worksheet A (With Qualifying Children)', () => {
     const { engine, session } = makeEICEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
     // 3-child MFJ plateau: $17,880–$30,470
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 25_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      25_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputNumQualifyingChildren', 3);
 
     expect(num(state, 'schedule-eic.joint.worksheetLine2_phaseInCredit')).toBe(8_046);
@@ -319,7 +427,13 @@ describe('Schedule EIC — Worksheet A (With Qualifying Children)', () => {
   test('19. 3 children, MFJ, $68,000 → near phase-out end ($68,675), small credit', () => {
     const { engine, session } = makeEICEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 68_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      68_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputNumQualifyingChildren', 3);
 
     const credit = num(state, SCHEDULE_EIC_OUTPUTS.credit);
@@ -337,7 +451,13 @@ describe('Schedule EIC — AGI vs Earned Income Interaction', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 15_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      15_000,
+    );
 
     const phaseIn = num(state, 'schedule-eic.joint.worksheetLine2_phaseInCredit');
     const agiLookup = num(state, 'schedule-eic.joint.worksheetLine5_agiLookup');
@@ -350,7 +470,13 @@ describe('Schedule EIC — AGI vs Earned Income Interaction', () => {
   test('21. AGI = earned income → Line 2 = Line 5, credit = Line 2', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputNumQualifyingChildren', 1);
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
 
@@ -383,7 +509,13 @@ describe('Schedule EIC — Investment Income Boundary', () => {
   test('23. Investment income exactly at limit ($11,950) → still eligible', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
     state = setInput(engine, state, session, 'schedule-eic.joint.inputInvestmentIncome', 11_950);
 
@@ -394,7 +526,13 @@ describe('Schedule EIC — Investment Income Boundary', () => {
   test('24. Investment income $1 above limit ($11,951) → disqualified', () => {
     const { engine, session } = makeEICEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'schedule-eic.joint.inputPrimaryAge', 35);
     state = setInput(engine, state, session, 'schedule-eic.joint.inputInvestmentIncome', 11_951);
 

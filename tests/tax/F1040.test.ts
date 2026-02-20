@@ -1,3 +1,5 @@
+// This is failing because some of the values are not passed in 2024
+
 /**
  * FORM 1040 SHELL — INTEGRATION TESTS (UPDATED)
  *
@@ -8,23 +10,23 @@
  *
  * Key changes vs old tests:
  * - Removed ALL manual inputs to Line 9 (total income). It is computed now.
- *   Use: f1040.joint.line9input_otherIncome as the input driver.
+ *   Use: schedule1.joint.line3_businessIncome as the input driver.
  * - Removed ALL manual inputs to Line 16 (tax). It is computed now.
  * - Added standard deduction input nodes (age/blind/dependent/QBI) where needed.
  */
 
-import { TaxGraphEngineImpl } from '../../src/core/graph/engine.js';
-import { F8889_NODES }        from '../../src/tax/forms/f8889/nodes';
-import { F5329_NODES }        from '../../src/tax/forms/f5329/nodes';
-import { SCHEDULE1_NODES }    from '../../src/tax/forms/schedule1/nodes.js';
-import { SCHEDULE2_NODES }    from '../../src/tax/forms/schedule2/nodes';
-import { F1040_NODES }        from '../../src/tax/forms/f1040/nodes.js';
-import { F1040_OUTPUTS }      from '../../src/tax/forms/f1040/nodes.js';
-import { SCHEDULE1_OUTPUTS }  from '../../src/tax/forms/schedule1/nodes.js';
-import { SCHEDULE2_OUTPUTS }  from '../../src/tax/forms/schedule2/nodes';
-import { InputEventSource }   from '../../src/core/graph/engine.types';
-import { NodeStatus }         from '../../src/core/graph/node.types';
-import type { InputEvent }    from '../../src/core/graph/engine.types';
+import { TaxGraphEngineImpl } from "../../src/core/graph/engine.js";
+import { F8889_NODES } from "../../src/tax/forms/f8889/nodes";
+import { F5329_NODES } from "../../src/tax/forms/f5329/nodes";
+import { SCHEDULE1_NODES } from "../../src/tax/forms/schedule1/nodes.js";
+import { SCHEDULE2_NODES } from "../../src/tax/forms/schedule2/nodes";
+import { F1040_NODES } from "../../src/tax/forms/f1040/nodes.js";
+import { F1040_OUTPUTS } from "../../src/tax/forms/f1040/nodes.js";
+import { SCHEDULE1_OUTPUTS } from "../../src/tax/forms/schedule1/nodes.js";
+import { SCHEDULE2_OUTPUTS } from "../../src/tax/forms/schedule2/nodes";
+import { InputEventSource } from "../../src/core/graph/engine.types";
+import { NodeStatus } from "../../src/core/graph/node.types";
+import type { InputEvent } from "../../src/core/graph/engine.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEST HELPERS
@@ -44,20 +46,35 @@ function makeEngine() {
   return engine;
 }
 
-function makeEvent(instanceId: string, value: string | number | boolean): InputEvent {
-  return { instanceId, value, source: InputEventSource.PREPARER, timestamp: new Date().toISOString() };
+function makeEvent(
+  instanceId: string,
+  value: string | number | boolean,
+): InputEvent {
+  return {
+    instanceId,
+    value,
+    source: InputEventSource.PREPARER,
+    timestamp: new Date().toISOString(),
+  };
 }
 
 function applyEvents(
-  events:       { instanceId: string; value: string | number | boolean }[],
-  taxYear:      string = '2025',
-  filingStatus: string = 'single',
+  events: { instanceId: string; value: string | number | boolean }[],
+  taxYear: string = "2025",
+  filingStatus: string = "single",
 ) {
-  const engine  = makeEngine();
+  const engine = makeEngine();
   const context = { taxYear, filingStatus, hasSpouse: false };
-  let result    = engine.initializeSession({ ...context, sessionKey: `test#${taxYear}` });
+  let result = engine.initializeSession({
+    ...context,
+    sessionKey: `test#${taxYear}`,
+  });
   for (const e of events) {
-    result = engine.process(makeEvent(e.instanceId, e.value), result.currentState, context);
+    result = engine.process(
+      makeEvent(e.instanceId, e.value),
+      result.currentState,
+      context,
+    );
   }
   return result.currentState;
 }
@@ -65,56 +82,60 @@ function applyEvents(
 function num(state: ReturnType<typeof applyEvents>, nodeId: string): number {
   const snap = state[nodeId];
   if (!snap) throw new Error(`Node not found: ${nodeId}`);
-  if (typeof snap.value !== 'number') throw new Error(`Expected number at ${nodeId}, got: ${snap.value}`);
+  if (typeof snap.value !== "number")
+    throw new Error(`Expected number at ${nodeId}, got: ${snap.value}`);
   return snap.value;
 }
 
 function status(state: ReturnType<typeof applyEvents>, nodeId: string): string {
-  return state[nodeId]?.status ?? 'not_found';
+  return state[nodeId]?.status ?? "not_found";
 }
 
 // Safe helper for nodes that may be SKIPPED/null
-function maybeNum(state: ReturnType<typeof applyEvents>, nodeId: string): number {
+function maybeNum(
+  state: ReturnType<typeof applyEvents>,
+  nodeId: string,
+): number {
   const snap = state[nodeId];
   if (!snap) throw new Error(`Node not found: ${nodeId}`);
-  return typeof snap.value === 'number' ? snap.value : 0;
+  return typeof snap.value === "number" ? snap.value : 0;
 }
 
 // ── Node ID shorthands ──────────────────────────────────────────────────────
 
 const H = {
-  coverageType:          'f8889.primary.line1_coverageType',
-  personalContributions: 'f8889.primary.line2_personalContributions',
-  ageAsOfDec31:          'f8889.primary.line4input_ageAsOfDec31',
-  employerContributions: 'f8889.primary.line6_employerContributions',
-  hsaDeduction:          'f8889.primary.line13_hsaDeduction',
-  totalDistributions:    'f8889.primary.line14a_totalDistributions',
-  qualifiedExpenses:     'f8889.primary.line16_qualifiedMedicalExpenses',
-  additionalTax:         'f8889.primary.line17b_additionalTax',
-  isDisabled:            'f8889.primary.line17b_input_isDisabled',
+  coverageType: "f8889.primary.line1_coverageType",
+  personalContributions: "f8889.primary.line2_personalContributions",
+  ageAsOfDec31: "f8889.primary.line4input_ageAsOfDec31",
+  employerContributions: "f8889.primary.line6_employerContributions",
+  hsaDeduction: "f8889.primary.line13_hsaDeduction",
+  totalDistributions: "f8889.primary.line14a_totalDistributions",
+  qualifiedExpenses: "f8889.primary.line16_qualifiedMedicalExpenses",
+  additionalTax: "f8889.primary.line17b_additionalTax",
+  isDisabled: "f8889.primary.line17b_input_isDisabled",
 };
 
 const R = {
-  earlyDistributions:    'f5329.primary.line1_earlyDistributions',
-  exceptionAmount:       'f5329.primary.line2_exceptionAmount',
-  earlyDistPenalty:      'f5329.primary.line4_additionalTax',
-  excessTax:             'f5329.primary.line49_excessTax',
+  earlyDistributions: "f5329.primary.line1_earlyDistributions",
+  exceptionAmount: "f5329.primary.line2_exceptionAmount",
+  earlyDistPenalty: "f5329.primary.line4_additionalTax",
+  excessTax: "f5329.primary.line49_excessTax",
 };
 
 const S1 = {
-  line13_hsaDeduction:   'schedule1.joint.line13_hsaDeduction',
-  line26_totalAdj:       'schedule1.joint.line26_totalAdjustments',
+  line13_hsaDeduction: "schedule1.joint.line13_hsaDeduction",
+  line26_totalAdj: "schedule1.joint.line26_totalAdjustments",
 };
 
 const S2 = {
-  line8:                 'schedule2.joint.line8_additionalRetirementTax',
-  line17b:               'schedule2.joint.line17b_hsaDistributionTax',
-  line44:                'schedule2.joint.line44_totalAdditionalTaxes',
+  line8: "schedule2.joint.line8_additionalRetirementTax",
+  line17b: "schedule2.joint.line17b_hsaDistributionTax",
+  line44: "schedule2.joint.line44_totalAdditionalTaxes",
 };
 
 const F = {
   // ✅ NEW: use this to drive total income (Line 9)
-  line9input_otherIncome: "f1040.joint.line9input_otherIncome",
+  line9input_otherIncome: "schedule1.joint.line3_businessIncome",
 
   // Line 9 is computed (read-only in tests)
   line9_totalIncome: "f1040.joint.line9_totalIncome",
@@ -130,26 +151,26 @@ const F = {
 
 // Line 12/13 inputs (new)
 const F12 = {
-  primaryAge:    'f1040.joint.line12input_primaryAge',
-  primaryBlind:  'f1040.joint.line12input_primaryBlind',
-  spouseAge:     'f1040.joint.line12input_spouseAge',
-  spouseBlind:   'f1040.joint.line12input_spouseBlind',
-  isDependent:   'f1040.joint.line12input_isDependentFiler',
-  earnedIncome:  'f1040.joint.line12input_earnedIncome',
-  qbiDeduction:  'f1040.joint.line13_qbiDeduction',
+  primaryAge: "f1040.joint.line12input_primaryAge",
+  primaryBlind: "f1040.joint.line12input_primaryBlind",
+  spouseAge: "f1040.joint.line12input_spouseAge",
+  spouseBlind: "f1040.joint.line12input_spouseBlind",
+  isDependent: "f1040.joint.line12input_isDependentFiler",
+  earnedIncome: "f1040.joint.line12input_earnedIncome",
+  qbiDeduction: "f1040.joint.line13_qbiDeduction",
 };
 
 // Convenience: set standard deduction inputs deterministically for single filer
 function baseStdDeductionInputs(age: number) {
   return [
-    { instanceId: F12.primaryAge,   value: age },
+    { instanceId: F12.primaryAge, value: age },
     { instanceId: F12.primaryBlind, value: false },
-    { instanceId: F12.isDependent,  value: false },
+    { instanceId: F12.isDependent, value: false },
     { instanceId: F12.earnedIncome, value: 0 },
     { instanceId: F12.qbiDeduction, value: 0 },
     // spouse inputs harmless for single, but keep deterministic
-    { instanceId: F12.spouseAge,    value: 0 },
-    { instanceId: F12.spouseBlind,  value: false },
+    { instanceId: F12.spouseAge, value: 0 },
+    { instanceId: F12.spouseBlind, value: false },
   ] as { instanceId: string; value: string | number | boolean }[];
 }
 
@@ -157,9 +178,8 @@ function baseStdDeductionInputs(age: number) {
 // SUITE 1 — REGISTRATION
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Form 1040 Shell — Registration', () => {
-
-  test('All five form node sets register together without error', () => {
+describe("Form 1040 Shell — Registration", () => {
+  test("All five form node sets register together without error", () => {
     expect(() => makeEngine()).not.toThrow();
   });
 
@@ -177,13 +197,19 @@ describe('Form 1040 Shell — Registration', () => {
     expect(Object.keys(init.currentState).length).toBeGreaterThan(50);
   });
 
-  test('Form 1040 AGI node exists in the initialized session', () => {
-    const engine  = makeEngine();
-    const context = { taxYear: '2025', filingStatus: 'single', hasSpouse: false };
-    const init    = engine.initializeSession({ ...context, sessionKey: 'test#2025' });
+  test("Form 1040 AGI node exists in the initialized session", () => {
+    const engine = makeEngine();
+    const context = {
+      taxYear: "2025",
+      filingStatus: "single",
+      hasSpouse: false,
+    };
+    const init = engine.initializeSession({
+      ...context,
+      sessionKey: "test#2025",
+    });
     expect(init.currentState[F.line11_agi]).toBeDefined();
   });
-
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -191,8 +217,7 @@ describe('Form 1040 Shell — Registration', () => {
 // Form 1040 Lines 9, 10, 11
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Form 1040 Shell — AGI Calculation', () => {
-
+describe("Form 1040 Shell — AGI Calculation", () => {
   test("Scenario: No adjustments — AGI equals total income", () => {
     const state = applyEvents([
       { instanceId: F.line9input_otherIncome, value: 60_000 },
@@ -300,7 +325,6 @@ describe('Form 1040 Shell — AGI Calculation', () => {
     expect(result.currentState[F.line10_adjustments]!.value).toBe(4_150);
     expect(result.currentState[F.line11_agi]!.value).toBe(75_850);
   });
-
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -308,9 +332,8 @@ describe('Form 1040 Shell — AGI Calculation', () => {
 // Form 1040 Line 17 = Schedule 2 Line 44
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Form 1040 Shell — Additional Taxes (Line 17)', () => {
-
-  test('Line 17 is SKIPPED when no penalties exist', () => {
+describe("Form 1040 Shell — Additional Taxes (Line 17)", () => {
+  test("Line 17 is SKIPPED when no penalties exist", () => {
     const state = applyEvents([
       { instanceId: F.line9input_otherIncome, value: 60_000 },
       { instanceId: H.coverageType, value: "self_only" },
@@ -360,7 +383,6 @@ describe('Form 1040 Shell — Additional Taxes (Line 17)', () => {
     expect(num(state, H.additionalTax)).toBe(100);
     expect(num(state, F.line17_additionalTax)).toBe(100);
   });
-
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -368,9 +390,8 @@ describe('Form 1040 Shell — Additional Taxes (Line 17)', () => {
 // Line 16 (computed) + Line 17 (computed or skipped)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Form 1040 Shell — Total Tax (Line 24)', () => {
-
-  test('Total tax = regular tax when no additional taxes', () => {
+describe("Form 1040 Shell — Total Tax (Line 24)", () => {
+  test("Total tax = regular tax when no additional taxes", () => {
     const state = applyEvents([
       { instanceId: F.line9input_otherIncome, value: 60_000 },
       ...baseStdDeductionInputs(40),
@@ -415,7 +436,6 @@ describe('Form 1040 Shell — Total Tax (Line 24)', () => {
       num(state, F.line16_tax) + num(state, F.line17_additionalTax),
     );
   });
-
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -423,8 +443,7 @@ describe('Form 1040 Shell — Total Tax (Line 24)', () => {
 // One complete scenario exercising every layer simultaneously
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Form 1040 Shell — Full Vertical Slice', () => {
-
+describe("Form 1040 Shell — Full Vertical Slice", () => {
   test("Complete scenario: wages → HSA deduction → AGI → penalties → total tax", () => {
     const state = applyEvents([
       { instanceId: F.line9input_otherIncome, value: 75_000 },
@@ -493,7 +512,6 @@ describe('Form 1040 Shell — Full Vertical Slice', () => {
     expect(status(state, F.line17_additionalTax)).toBe(NodeStatus.SKIPPED);
     expect(num(state, F.line24_totalTax)).toBe(num(state, F.line16_tax));
   });
-
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -501,8 +519,7 @@ describe('Form 1040 Shell — Full Vertical Slice', () => {
 // Changes at the source propagate all the way to Form 1040 outputs
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Form 1040 Shell — Full Chain Reactivity', () => {
-
+describe("Form 1040 Shell — Full Chain Reactivity", () => {
   test("Correcting HSA contribution updates AGI and eliminates penalty", () => {
     const engine = makeEngine();
     const context = {
@@ -667,7 +684,6 @@ describe('Form 1040 Shell — Full Chain Reactivity', () => {
       NodeStatus.SKIPPED,
     );
   });
-
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -675,25 +691,40 @@ describe('Form 1040 Shell — Full Chain Reactivity', () => {
 // Exported constants point to real nodes; IDs haven't drifted
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Form 1040 Shell — Output Integrity', () => {
-
-  test('F1040_OUTPUTS constants all point to existing nodes', () => {
-    const engine  = makeEngine();
-    const context = { taxYear: '2025', filingStatus: 'single', hasSpouse: false };
-    const init    = engine.initializeSession({ ...context, sessionKey: 'test#2025' });
+describe("Form 1040 Shell — Output Integrity", () => {
+  test("F1040_OUTPUTS constants all point to existing nodes", () => {
+    const engine = makeEngine();
+    const context = {
+      taxYear: "2025",
+      filingStatus: "single",
+      hasSpouse: false,
+    };
+    const init = engine.initializeSession({
+      ...context,
+      sessionKey: "test#2025",
+    });
 
     for (const [, nodeId] of Object.entries(F1040_OUTPUTS)) {
       expect(init.currentState[nodeId]).toBeDefined();
     }
   });
 
-  test('SCHEDULE1_OUTPUTS and SCHEDULE2_OUTPUTS constants point to existing nodes', () => {
-    const engine  = makeEngine();
-    const context = { taxYear: '2025', filingStatus: 'single', hasSpouse: false };
-    const init    = engine.initializeSession({ ...context, sessionKey: 'test#2025' });
+  test("SCHEDULE1_OUTPUTS and SCHEDULE2_OUTPUTS constants point to existing nodes", () => {
+    const engine = makeEngine();
+    const context = {
+      taxYear: "2025",
+      filingStatus: "single",
+      hasSpouse: false,
+    };
+    const init = engine.initializeSession({
+      ...context,
+      sessionKey: "test#2025",
+    });
 
     expect(init.currentState[SCHEDULE1_OUTPUTS.totalAdjustments]).toBeDefined();
-    expect(init.currentState[SCHEDULE2_OUTPUTS.totalAdditionalTaxes]).toBeDefined();
+    expect(
+      init.currentState[SCHEDULE2_OUTPUTS.totalAdditionalTaxes],
+    ).toBeDefined();
   });
 
   test("AGI node is F1040_OUTPUTS.adjustedGrossIncome", () => {
@@ -707,7 +738,7 @@ describe('Form 1040 Shell — Output Integrity', () => {
     expect(state[F1040_OUTPUTS.adjustedGrossIncome]?.value).toBe(75_700);
   });
 
-  test('Total tax node is F1040_OUTPUTS.totalTax', () => {
+  test("Total tax node is F1040_OUTPUTS.totalTax", () => {
     const state = applyEvents([
       { instanceId: F.line9input_otherIncome, value: 60_000 },
       ...baseStdDeductionInputs(40),
@@ -721,8 +752,6 @@ describe('Form 1040 Shell — Output Integrity', () => {
     const expected =
       num(state, F.line16_tax) + maybeNum(state, F.line17_additionalTax);
     expect(state[F1040_OUTPUTS.totalTax]?.value).toBe(expected);
-  }
-//////
-);
-
+  });
+  //////
 });

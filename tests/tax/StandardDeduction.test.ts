@@ -75,7 +75,7 @@ function sessionEngine(filingStatus = 'single', taxYear = '2025') {
 // Node shorthands
 const F = {
   // ✅ INPUT (write here)
-  otherIncome: "f1040.joint.line9input_otherIncome",
+  otherIncome: "schedule1.joint.line3_businessIncome",
 
   // ✅ COMPUTED (read-only assertions)
   totalIncome: "f1040.joint.line9_totalIncome",

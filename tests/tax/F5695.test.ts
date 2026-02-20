@@ -101,7 +101,13 @@ describe('Form 5695 Part I — §25D Residential Clean Energy Credit', () => {
   test('1. Solar PV only → 30% credit, full credit allowed', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line1_solarElectric', 20_000);
 
     // 30% × $20,000 = $6,000
@@ -117,7 +123,13 @@ describe('Form 5695 Part I — §25D Residential Clean Energy Credit', () => {
   test('2. Multiple Part I sources → all summed then multiplied by 30%', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 200_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      200_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line1_solarElectric',   10_000);
     state = setInput(engine, state, session, 'f5695.joint.line2_solarWater',       5_000);
     state = setInput(engine, state, session, 'f5695.joint.line3_smallWind',        5_000);
@@ -133,7 +145,13 @@ describe('Form 5695 Part I — §25D Residential Clean Energy Credit', () => {
   test('3. Carryforward from 2024 adds to tentative total (line 12 + line 6a = line 13)', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 200_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      200_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line1_solarElectric',   10_000);
     state = setInput(engine, state, session, 'f5695.joint.line12_carryforward',    2_000);
 
@@ -150,7 +168,13 @@ describe('Form 5695 Part I — §25D Residential Clean Energy Credit', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
     // Low income → small tax liability
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line1_solarElectric',   30_000);
 
     // 30% × $30,000 = $9,000 tentative
@@ -187,7 +211,13 @@ describe('Form 5695 Part I — §25D Residential Clean Energy Credit', () => {
   test('6. All Part I inputs including fuel cell', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 500_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      500_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line1_solarElectric',   20_000);
     state = setInput(engine, state, session, 'f5695.joint.line2_solarWater',       5_000);
     state = setInput(engine, state, session, 'f5695.joint.line3_smallWind',        8_000);
@@ -213,7 +243,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('7. Insulation $2,000 → 30% = $600, no sub-limit, under $1,200 overall cap', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line18a_insulation', 2_000);
 
     // 30% × $2,000 = $600; insulation has no sub-limit, well under $1,200 overall
@@ -225,7 +261,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('8. Insulation $5,000 → 30% = $1,500 → capped at $1,200 overall', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line18a_insulation', 5_000);
 
     // Insulation has no sub-limit but $1,200 overall cap applies
@@ -236,7 +278,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('9. Exterior doors $3,000 → 30% = $900, capped at $500 sub-limit', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line19a_exteriorDoors', 3_000);
 
     expect(val(state, 'f5695.joint.bucketA_subtotal')).toBe(500);
@@ -247,7 +295,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('10. Windows/skylights $5,000 → 30% = $1,500, capped at $600', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line19d_windowsSkylights', 5_000);
 
     expect(val(state, 'f5695.joint.bucketA_subtotal')).toBe(600);
@@ -257,7 +311,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('11. Central A/C $5,000 → 30% = $1,500, capped at $600', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line20a_centralAC', 5_000);
 
     expect(val(state, 'f5695.joint.bucketA_subtotal')).toBe(600);
@@ -267,7 +327,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('12. Gas water heater $5,000 → 30% = $1,500, capped at $600', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line20b_gasWaterHeater', 5_000);
 
     expect(val(state, 'f5695.joint.bucketA_subtotal')).toBe(600);
@@ -277,7 +343,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('13. Gas furnace $5,000 → 30% = $1,500, capped at $600', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line20c_gasFurnace', 5_000);
 
     expect(val(state, 'f5695.joint.bucketA_subtotal')).toBe(600);
@@ -287,7 +359,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('14. Electric panel $5,000 → 30% = $1,500, capped at $600', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line25c_electricPanel', 5_000);
 
     expect(val(state, 'f5695.joint.bucketA_subtotal')).toBe(600);
@@ -297,7 +375,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('15. Home energy audit $1,000 → 30% = $300, capped at $150', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line26b_homeEnergyAudit', 1_000);
 
     expect(val(state, 'f5695.joint.bucketA_subtotal')).toBe(150);
@@ -308,7 +392,13 @@ describe('Form 5695 Part II — §25C Bucket A Sub-Limits', () => {
   test('16. Bucket A $1,200 overall cap — windows $600 + A/C $600 + water heater $600 = $1,800 subtotal → $1,200', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line19d_windowsSkylights', 5_000); // → $600
     state = setInput(engine, state, session, 'f5695.joint.line20a_centralAC',        5_000); // → $600
     state = setInput(engine, state, session, 'f5695.joint.line20b_gasWaterHeater',   5_000); // → $600
@@ -331,7 +421,13 @@ describe('Form 5695 Part II — §25C Bucket B (Heat Pumps + Biomass)', () => {
   test('17. Heat pumps $10,000 → 30% = $3,000, capped at $2,000', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line22a_heatPumps', 10_000);
 
     expect(val(state, 'f5695.joint.line30_bucketB')).toBe(2_000);
@@ -341,7 +437,13 @@ describe('Form 5695 Part II — §25C Bucket B (Heat Pumps + Biomass)', () => {
   test('18. Biomass $5,000 → 30% = $1,500, under $2,000 cap', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line23a_biomass', 5_000);
 
     expect(val(state, 'f5695.joint.line30_bucketB')).toBe(1_500);
@@ -351,7 +453,13 @@ describe('Form 5695 Part II — §25C Bucket B (Heat Pumps + Biomass)', () => {
   test('19. Heat pumps $5,000 + biomass $5,000 → 30% × $10,000 = $3,000, capped at $2,000', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line22a_heatPumps', 5_000);
     state = setInput(engine, state, session, 'f5695.joint.line23a_biomass',   5_000);
 
@@ -370,7 +478,13 @@ describe('Form 5695 Part II — Combined and Tax Cap', () => {
   test('20. Max Bucket A ($1,200) + max Bucket B ($2,000) → $3,200 total', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 200_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      200_000,
+    );
     // Max out Bucket A: three $600 items = $1,800 subtotal → $1,200 after cap
     state = setInput(engine, state, session, 'f5695.joint.line19d_windowsSkylights', 5_000);
     state = setInput(engine, state, session, 'f5695.joint.line20a_centralAC',        5_000);
@@ -389,7 +503,13 @@ describe('Form 5695 Part II — Combined and Tax Cap', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
     // Low income → tax well below the $2,000 heat pump tentative
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 15_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      15_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line22a_heatPumps', 10_000);
 
     const taxLiability = val(state, 'f1040.joint.line24_totalTax');
@@ -406,7 +526,13 @@ describe('Form 5695 Part II — Combined and Tax Cap', () => {
   test('22. Zero inputs → all computed nodes are zero', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 100_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      100_000,
+    );
 
     expect(val(state, 'f5695.joint.line6a_creditBase')).toBe(0);
     expect(val(state, 'f5695.joint.line13_tentativeTotal')).toBe(0);
@@ -430,7 +556,13 @@ describe('Form 5695 — Part I (§25D) + Part II (§25C) on same return', () => 
   test('23. Solar (Part I) + heat pump (Part II) → independent, separate Schedule 3 lines', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 150_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      150_000,
+    );
     // Part I: $20,000 solar → 30% = $6,000
     state = setInput(engine, state, session, 'f5695.joint.line1_solarElectric', 20_000);
     // Part II: $10,000 heat pump → capped at $2,000
@@ -450,7 +582,13 @@ describe('Form 5695 — Part I (§25D) + Part II (§25C) on same return', () => 
   test('24. MFJ filer — same 30% rate (§25D/§25C have no income phase-out)', () => {
     const { engine, session } = makeEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 200_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      200_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line1_solarElectric', 20_000);
 
     // Same 30% regardless of filing status
@@ -461,7 +599,13 @@ describe('Form 5695 — Part I (§25D) + Part II (§25C) on same return', () => 
   test('25. Carryforward only — no current-year costs, prior-year credit used against this year tax', () => {
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     // No current solar costs — only prior year carryforward
     state = setInput(engine, state, session, 'f5695.joint.line12_carryforward', 4_000);
 
@@ -476,7 +620,13 @@ describe('Form 5695 — Part I (§25D) + Part II (§25C) on same return', () => 
     const { engine, session } = makeEngine();
     let state = engine.initializeSession(session).currentState;
     // $80,000 income → tax ≈ $13,000+; solar credit = $3,000 → fully absorbed
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f5695.joint.line1_solarElectric', 10_000);
 
     const taxLiability = val(state, 'f1040.joint.line24_totalTax');

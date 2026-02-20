@@ -481,7 +481,11 @@ describe('W-2 Slot Architecture — F1040 Integration', () => {
 
     result = registry.addSlot('w2', NodeOwner.PRIMARY, SINGLE_CTX, result.currentState);
     result = engine.process(makeEvent(w2(NodeOwner.PRIMARY, 0, 'box1_wages'), 80_000), result.currentState, SINGLE_CTX);
-    result = engine.process(makeEvent('f1040.joint.line9input_otherIncome', 5_000), result.currentState, SINGLE_CTX);
+    result = engine.process(
+      makeEvent("schedule1.joint.line3_businessIncome", 5_000),
+      result.currentState,
+      SINGLE_CTX,
+    );
 
     expect(num(result.currentState, F1040_OUTPUTS.totalIncome)).toBe(85_000);
   });

@@ -150,7 +150,7 @@ const S2 = {
 };
 
 const F = {
-  otherIncome: "f1040.joint.line9input_otherIncome", // ✅ INPUT (write here)
+  otherIncome: "schedule1.joint.line3_businessIncome", // ✅ INPUT (write here)
   totalIncome: "f1040.joint.line9_totalIncome", // ✅ COMPUTED (read/assert only)
   adjustments: "f1040.joint.line10_adjustmentsToIncome",
   agi: "f1040.joint.line11_adjustedGrossIncome",

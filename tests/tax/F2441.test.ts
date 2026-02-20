@@ -100,7 +100,13 @@ describe('Form 2441 — Credit Rate Table', () => {
   test('1. AGI ≤ $15,000 → 35% max rate', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 12_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      12_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
 
@@ -112,7 +118,13 @@ describe('Form 2441 — Credit Rate Table', () => {
   test('2. AGI $20,000 → 32% rate', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 20_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      20_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
 
@@ -124,7 +136,13 @@ describe('Form 2441 — Credit Rate Table', () => {
   test('3. AGI $43,001+ → 20% floor rate', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
 
@@ -136,7 +154,13 @@ describe('Form 2441 — Credit Rate Table', () => {
   test('4. AGI exactly $17,000 → 34% (boundary check)', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 17_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      17_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
 
@@ -155,7 +179,13 @@ describe('Form 2441 — Expense Cap', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
     // High income → 20% rate, high expenses → cap is the binding constraint
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 5_000);
 
@@ -167,7 +197,13 @@ describe('Form 2441 — Expense Cap', () => {
   test('6. 2 qualifying persons → $6,000 cap enforced on $10,000 actual expenses', () => {
     const { engine, session } = makeEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 2);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 10_000);
     state = setInput(engine, state, session, 'f2441.joint.line5_spouseEarnedIncome', 80_000);
@@ -180,7 +216,13 @@ describe('Form 2441 — Expense Cap', () => {
   test('7. Expenses below cap → actual expenses used', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 2);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 2_500);
 
@@ -201,7 +243,13 @@ describe('Form 2441 — Earned Income Limit', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
     // Low earned income → earned income is the binding constraint
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 1_500);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      1_500,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
 
@@ -214,7 +262,13 @@ describe('Form 2441 — Earned Income Limit', () => {
   test('9. MFJ — primary earns $50k, spouse earns $50k → not a constraint', () => {
     const { engine, session } = makeEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 50_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      50_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line5_spouseEarnedIncome', 50_000);
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
@@ -228,7 +282,13 @@ describe('Form 2441 — Earned Income Limit', () => {
     const { engine, session } = makeEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
     // Primary earns $80k; spouse earns $1,200 (lower-earning spouse is binding)
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line5_spouseEarnedIncome', 1_200);
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
@@ -250,7 +310,13 @@ describe('Form 2441 — Employer Benefits (FSA)', () => {
   test('11. FSA benefits reduce expense base dollar-for-dollar', () => {
     const { engine, session } = makeEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line5_spouseEarnedIncome', 80_000);
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 2);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 10_000);
@@ -267,7 +333,13 @@ describe('Form 2441 — Employer Benefits (FSA)', () => {
   test('11b. FSA $5,000 + expenses $6,000 → base = $1,000', () => {
     const { engine, session } = makeEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line5_spouseEarnedIncome', 80_000);
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 2);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 6_000);
@@ -283,7 +355,13 @@ describe('Form 2441 — Employer Benefits (FSA)', () => {
   test('12. FSA benefits fully consume expense base → zero credit', () => {
     const { engine, session } = makeEngine('married_filing_jointly');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line5_spouseEarnedIncome', 80_000);
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
@@ -298,7 +376,13 @@ describe('Form 2441 — Employer Benefits (FSA)', () => {
   test('13. MFS filer — FSA exclusion max is $2,500', () => {
     const { engine, session } = makeEngine('married_filing_separately');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
     // $4,000 benefits, but MFS cap is $2,500
@@ -322,7 +406,13 @@ describe('Form 2441 — Tax Liability Cap', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
     // Very low income → small tax liability
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 14_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      14_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 1);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 3_000);
 
@@ -358,7 +448,13 @@ describe('Form 2441 — Edge Cases', () => {
   test('16. No qualifying persons → zero credit', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     // Default: 0 qualifying persons
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 5_000);
 
@@ -370,7 +466,13 @@ describe('Form 2441 — Edge Cases', () => {
   test('17. Zero expenses → zero credit', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 2);
     // Default: $0 expenses
 
@@ -381,7 +483,13 @@ describe('Form 2441 — Edge Cases', () => {
   test('18. HoH filer — no spouse income constraint, full cap available', () => {
     const { engine, session } = makeEngine('head_of_household');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 80_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      80_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 2);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 6_000);
     // Spouse income input left at default 0 — should NOT constrain a single HoH
@@ -395,7 +503,13 @@ describe('Form 2441 — Edge Cases', () => {
   test('19. Maximum credit scenario — 2 persons, $6,000 expenses, AGI ≤ $15,000', () => {
     const { engine, session } = makeEngine('single');
     let state = engine.initializeSession(session).currentState;
-    state = setInput(engine, state, session, 'f1040.joint.line9input_otherIncome', 10_000);
+    state = setInput(
+      engine,
+      state,
+      session,
+      "schedule1.joint.line3_businessIncome",
+      10_000,
+    );
     state = setInput(engine, state, session, 'f2441.joint.line2_numQualifyingPersons', 2);
     state = setInput(engine, state, session, 'f2441.joint.line3_qualifyingExpenses', 6_000);
 

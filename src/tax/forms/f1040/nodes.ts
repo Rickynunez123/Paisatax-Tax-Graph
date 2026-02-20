@@ -59,7 +59,7 @@ import {
   getScheduleDConstants,
 } from "../schedule-d/constants/index";
 
-const APPLICABLE_YEARS = ["2025"];
+const APPLICABLE_YEARS = ["2024", "2025"];
 const FORM_ID          = 'f1040';
 
 function safeNum(value: unknown): number {
@@ -450,6 +450,49 @@ const line15_taxableIncome: NodeDefinition = {
  * QDCGT Worksheet path: when netLongTerm > 0 OR qualifiedDividends > 0.
  * Ordinary brackets path: all other cases.
  */
+// const line16_tax: NodeDefinition = {
+//   id: `${FORM_ID}.joint.line16_tax`,
+//   kind: NodeKind.COMPUTED,
+//   label: "Form 1040 Line 16 — Tax",
+//   description:
+//     "Tax from QDCGT Worksheet (preferential rates when net LTCG > 0 or qualified dividends > 0) or ordinary brackets. Recomputes whenever capital gains or dividend data changes.",
+//   valueType: NodeValueType.CURRENCY,
+//   allowNegative: false,
+//   owner: NodeOwner.JOINT,
+//   repeatable: false,
+//   applicableTaxYears: APPLICABLE_YEARS,
+//   classifications: ["intermediate"],
+//   dependencies: [
+//     `${FORM_ID}.joint.line15_taxableIncome`,
+//     `${FORM_ID}.joint.line3a_qualifiedDividends`,
+//     SCHEDULE_D_OUTPUTS.netLongTerm,
+//   ],
+//   compute: (ctx) => {
+//     const taxableIncome = safeNum(
+//       ctx.get(`${FORM_ID}.joint.line15_taxableIncome`),
+//     );
+//     const qualifiedDividends = safeNum(
+//       ctx.get(`${FORM_ID}.joint.line3a_qualifiedDividends`),
+//     );
+//     const netLongTerm = safeNum(ctx.get(SCHEDULE_D_OUTPUTS.netLongTerm));
+//     const f1040C = getF1040Constants(ctx.taxYear);
+//     const schedDC = getScheduleDConstants(ctx.taxYear);
+
+//     if (netLongTerm > 0 || qualifiedDividends > 0) {
+//       return computeQDCGTTax(
+//         taxableIncome,
+//         qualifiedDividends,
+//         netLongTerm,
+//         ctx.filingStatus,
+//         schedDC,
+//         (ord) => computeTax(ord, ctx.filingStatus, f1040C),
+//       );
+//     }
+
+//     return computeTax(taxableIncome, ctx.filingStatus, f1040C);
+//   },
+// };
+
 const line16_tax: NodeDefinition = {
   id: `${FORM_ID}.joint.line16_tax`,
   kind: NodeKind.COMPUTED,
@@ -475,10 +518,12 @@ const line16_tax: NodeDefinition = {
       ctx.get(`${FORM_ID}.joint.line3a_qualifiedDividends`),
     );
     const netLongTerm = safeNum(ctx.get(SCHEDULE_D_OUTPUTS.netLongTerm));
-    const f1040C = getF1040Constants(ctx.taxYear);
-    const schedDC = getScheduleDConstants(ctx.taxYear);
 
+    const f1040C = getF1040Constants(ctx.taxYear);
+
+    // Only load Schedule D constants if we actually need the QDCGT worksheet
     if (netLongTerm > 0 || qualifiedDividends > 0) {
+      const schedDC = getScheduleDConstants(ctx.taxYear);
       return computeQDCGTTax(
         taxableIncome,
         qualifiedDividends,
@@ -489,9 +534,11 @@ const line16_tax: NodeDefinition = {
       );
     }
 
+    // Ordinary brackets path (works even if Schedule D constants are not available for this year)
     return computeTax(taxableIncome, ctx.filingStatus, f1040C);
   },
 };
+
 
 const line17_additionalTaxes: NodeDefinition = {
   id: `${FORM_ID}.joint.line17_additionalTaxes`,
