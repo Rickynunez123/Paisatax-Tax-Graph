@@ -1,30 +1,42 @@
 /**
  * FORM 1040 — U.S. INDIVIDUAL INCOME TAX RETURN
  *
- * WHAT IS IMPLEMENTED (✅) vs DEFERRED (🚧):
- *   ✅ Line 1a — W-2 wages (from W-2 joint aggregator)
- *   ✅ Line 9  — Total income (computed from Line 1a + others; input fallback when no income forms)
- *   ✅ Line 10 — Adjustments to income (= Schedule 1 Line 26)
- *   ✅ Line 11 — AGI (Line 9 - Line 10)
- *   ✅ Line 12 — Standard deduction
- *   🚧 Line 13 — QBI deduction (input, deferred)
- *   ✅ Line 15 — Taxable income
- *   ✅ Line 16 — Tax (bracket computation)
- *   ✅ Line 17 — Additional taxes (= Schedule 2 Line 44)
- *   ✅ Line 24 — Total tax
- *   ✅ Line 25a — W-2 federal withholding (from W-2 joint aggregator)
- *   🚧 Lines 2-8 — Other income lines (interest, dividends, cap gains, etc.)
- *   🚧 Lines 25b-33 — Other payments
- *   🚧 Lines 34-38 — Refund / amount owed
+ * CHANGES FROM PREVIOUS VERSION (Schedule D wave):
+ *   + Line 7  — Capital gains or losses (= Schedule D toF1040Line7)
+ *   ~ Line 9  — Now includes Line 7 in total income sum
+ *   ~ Line 16 — Now uses QDCGT Worksheet when netLongTerm > 0 or qualifiedDividends > 0
  *
- * LINE 9 STRATEGY
- *   Line 9 is COMPUTED when income source forms are available.
- *   It sums Line 1a (W-2 wages) plus a manual override input for
- *   income types not yet implemented (interest, dividends, etc.).
- *   When all income lines are built, the manual override goes away.
+ * WHAT IS IMPLEMENTED (✅) vs DEFERRED (🚧):
+ *   ✅ Line 1a  — W-2 wages
+ *   ✅ Line 2a  — Tax-exempt interest (informational)
+ *   ✅ Line 2b  — Taxable interest
+ *   ✅ Line 3a  — Qualified dividends (subset of 3b — used by QDCGT Worksheet)
+ *   ✅ Line 3b  — Ordinary dividends
+ *   🚧 Line 4b  — IRA distributions (deferred)
+ *   🚧 Line 5b  — Pensions/annuities (deferred)
+ *   🚧 Line 6b  — Social Security (deferred)
+ *   ✅ Line 7   — Capital gains or losses (Schedule D)
+ *   ✅ Line 8   — Other income (Schedule 1 Part I)
+ *   ✅ Line 9   — Total income (1a + 2b + 3b + 7 + 8)
+ *   ✅ Line 10  — Adjustments (Schedule 1 Part II)
+ *   ✅ Line 11  — AGI
+ *   ✅ Line 12  — Standard deduction
+ *   🚧 Line 13  — QBI deduction (deferred input)
+ *   ✅ Line 15  — Taxable income
+ *   ✅ Line 16  — Tax (ordinary brackets OR QDCGT Worksheet)
+ *   ✅ Line 17  — Additional taxes (Schedule 2)
+ *   ✅ Line 24  — Total tax
+ *   ✅ Line 25a — W-2 withholding
+ *
+ * LINE 16 COMPUTATION PATH:
+ *   IF (netLongTerm > 0 OR qualifiedDividends > 0):
+ *     → computeQDCGTTax() — preferential 0/15/20% rates on eligible income
+ *   ELSE:
+ *     → computeTax() — ordinary brackets only
  *
  * IRS References:
  *   Form 1040 Instructions (2025)
+ *   Schedule D Instructions — Tax Worksheet (2025)
  */
 
 import type { NodeDefinition } from '../../../core/graph/node.types';
@@ -37,13 +49,17 @@ import {
 } from '../../../core/graph/node.types';
 import { earnedIncome } from "./derived";
 
+import { SCHEDULE1_OUTPUTS } from "../schedule1/nodes";
+import { SCHEDULE2_OUTPUTS } from "../schedule2/nodes";
+import { SCHEDULE_B_OUTPUTS } from "../schedule-b/nodes";
+import { SCHEDULE_D_OUTPUTS } from "../schedule-d/nodes";
+import { W2_OUTPUTS } from "../w2/nodes";
+import {
+  computeQDCGTTax,
+  getScheduleDConstants,
+} from "../schedule-d/constants/index";
 
-
-import { SCHEDULE1_OUTPUTS } from '../schedule1/nodes';
-import { SCHEDULE2_OUTPUTS } from '../schedule2/nodes';
-import { W2_OUTPUTS }        from '../w2/nodes';
-
-const APPLICABLE_YEARS = ['2024', '2025'];
+const APPLICABLE_YEARS = ["2025"];
 const FORM_ID          = 'f1040';
 
 function safeNum(value: unknown): number {
@@ -51,254 +67,277 @@ function safeNum(value: unknown): number {
   return 0;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 1a — W-2 WAGES
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Line 1a — Total wages, salaries, tips (from W-2s)
- *
- * Pass-through from the W-2 joint aggregator.
- * When no W-2 slots exist, the aggregator returns 0 and this is 0.
- * When W-2 slots are added, this automatically updates.
- */
 const line1a_w2Wages: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line1a_w2Wages`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 1a — W-2 Wages',
-  description:        'Total wages, salaries, and tips from all W-2s for both filers. From W-2 Box 1 aggregator.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line1a_w2Wages`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 1a — W-2 Wages",
+  description: "Total wages, salaries, and tips from W-2 Box 1 aggregator.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['income.earned'],
-  dependencies:       [W2_OUTPUTS.jointWages],
+  classifications: ["income.earned"],
+  dependencies: [W2_OUTPUTS.jointWages],
   compute: (ctx) => safeNum(ctx.get(W2_OUTPUTS.jointWages)),
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 9 — TOTAL INCOME (COMPUTED)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Other income — manual input for income types not yet implemented.
- *
- * This is a temporary node that lets the preparer enter income that
- * doesn't yet have a dedicated form (interest, dividends, capital gains,
- * Schedule C, etc.). As those forms are built, they will add their
- * output to Line 9's dependencies and this input becomes unnecessary.
- *
- * When all income lines are implemented, this node will be deprecated.
- */
-const line9input_otherIncome: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line9input_otherIncome`,
-  kind:               NodeKind.INPUT,
-  label:              'Form 1040 Line 9 — Other Income (Manual Entry)',
-  description:        'Income from sources not yet implemented as dedicated forms (interest, dividends, capital gains, business income, etc.). Enter manually until those forms are built.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+const line2a_taxExemptInterest: NodeDefinition = {
+  id: `${FORM_ID}.joint.line2a_taxExemptInterest`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 2a — Tax-Exempt Interest (Informational)",
+  description:
+    "Tax-exempt interest — informational only. Not included in taxable income.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['income.other'],
-  source:             InputSource.PREPARER,
-  questionId:         'f1040.q.otherIncome',
-  defaultValue:       0,
+  classifications: ["income.portfolio"],
+  dependencies: [SCHEDULE_B_OUTPUTS.taxExemptInterest],
+  compute: (ctx) => safeNum(ctx.get(SCHEDULE_B_OUTPUTS.taxExemptInterest)),
+  isApplicable: (ctx) =>
+    safeNum(ctx.get(SCHEDULE_B_OUTPUTS.taxExemptInterest)) > 0,
+};
+
+const line2b_taxableInterest: NodeDefinition = {
+  id: `${FORM_ID}.joint.line2b_taxableInterest`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 2b — Taxable Interest",
+  description: "Taxable interest from Schedule B Line 4. Included in Line 9.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
+  applicableTaxYears: APPLICABLE_YEARS,
+  classifications: ["income.portfolio"],
+  dependencies: [SCHEDULE_B_OUTPUTS.taxableInterest],
+  compute: (ctx) => safeNum(ctx.get(SCHEDULE_B_OUTPUTS.taxableInterest)),
+  isApplicable: (ctx) =>
+    safeNum(ctx.get(SCHEDULE_B_OUTPUTS.taxableInterest)) > 0,
+};
+
+const line3a_qualifiedDividends: NodeDefinition = {
+  id: `${FORM_ID}.joint.line3a_qualifiedDividends`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 3a — Qualified Dividends",
+  description:
+    "Qualified dividends (subset of Line 3b). Does not add to Line 9. Used by Line 16 QDCGT Worksheet.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
+  applicableTaxYears: APPLICABLE_YEARS,
+  classifications: ["income.portfolio"],
+  dependencies: [SCHEDULE_B_OUTPUTS.qualifiedDividends],
+  compute: (ctx) => safeNum(ctx.get(SCHEDULE_B_OUTPUTS.qualifiedDividends)),
+  isApplicable: (ctx) =>
+    safeNum(ctx.get(SCHEDULE_B_OUTPUTS.qualifiedDividends)) > 0,
+};
+
+const line3b_ordinaryDividends: NodeDefinition = {
+  id: `${FORM_ID}.joint.line3b_ordinaryDividends`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 3b — Ordinary Dividends",
+  description:
+    "Total ordinary dividends from Schedule B Line 6. Included in Line 9.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
+  applicableTaxYears: APPLICABLE_YEARS,
+  classifications: ["income.portfolio"],
+  dependencies: [SCHEDULE_B_OUTPUTS.ordinaryDividends],
+  compute: (ctx) => safeNum(ctx.get(SCHEDULE_B_OUTPUTS.ordinaryDividends)),
+  isApplicable: (ctx) =>
+    safeNum(ctx.get(SCHEDULE_B_OUTPUTS.ordinaryDividends)) > 0,
 };
 
 /**
- * Line 9 — Total income
- *
- * NOW COMPUTED (was INPUT in the previous shell).
- *
- * Current sum: Line 1a (W-2 wages) + other income (manual input).
- * As income forms are built, add their outputs to dependencies and
- * the compute function. Eventually remove line9input_otherIncome.
- *
- * Income lines to add over time:
- *   Line 1b  — Household employee wages
- *   Line 2a  — Tax-exempt interest
- *   Line 2b  — Taxable interest (Schedule B)
- *   Line 3a  — Qualified dividends
- *   Line 3b  — Ordinary dividends (Schedule B)
- *   Line 4b  — IRA distributions (taxable)
- *   Line 5b  — Pensions/annuities (taxable)
- *   Line 6b  — Social Security (taxable)
- *   Line 7   — Capital gains (Schedule D)
- *   Line 8   — Other income (Schedule 1 Part I)
+ * Line 7 — Capital gains or losses.
+ * Reads Schedule D toF1040Line7 which already applies the $3,000 loss cap.
+ * Can be positive (gain) or negative (capped loss). Included in Line 9.
+ */
+const line7_capitalGains: NodeDefinition = {
+  id: `${FORM_ID}.joint.line7_capitalGains`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 7 — Capital Gains or Losses",
+  description:
+    "Net capital gain (positive) or deductible loss (negative, capped at -$3,000) from Schedule D. Zero when no 8949 activity.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: true,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
+  applicableTaxYears: APPLICABLE_YEARS,
+  classifications: ["income.portfolio"],
+  dependencies: [SCHEDULE_D_OUTPUTS.toF1040Line7],
+  compute: (ctx) => safeNum(ctx.get(SCHEDULE_D_OUTPUTS.toF1040Line7)),
+  isApplicable: (ctx) =>
+    safeNum(ctx.get(SCHEDULE_D_OUTPUTS.toF1040Line7)) !== 0,
+};
+
+/**
+ * Line 9 — Total income.
+ * Lines 1a + 2b + 3b + 7 + 8 (Schedule 1 Part I).
+ * Floor at zero — losses cannot push below 0.
  */
 const line9_totalIncome: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line9_totalIncome`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 9 — Total Income',
-  description:        'Total income before adjustments. Currently: W-2 wages (Line 1a) + other income (manual). Will expand as income forms are built.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line9_totalIncome`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 9 — Total Income",
+  description:
+    "Sum of W-2 wages (1a) + taxable interest (2b) + ordinary dividends (3b) + capital gains (7) + Schedule 1 Part I (8). Floor at zero.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['income.earned', 'income.other'],
+  classifications: ["income.earned", "income.portfolio", "income.other"],
   dependencies: [
     `${FORM_ID}.joint.line1a_w2Wages`,
-    `${FORM_ID}.joint.line9input_otherIncome`,
-    // Add future income line IDs here as they are built:
-    // `${FORM_ID}.joint.line2b_taxableInterest`,
-    // `${FORM_ID}.joint.line3b_ordinaryDividends`,
-    // `${FORM_ID}.joint.line7_capitalGains`,
-    // `${FORM_ID}.joint.line8_otherIncome`,
+    `${FORM_ID}.joint.line2b_taxableInterest`,
+    `${FORM_ID}.joint.line3b_ordinaryDividends`,
+    `${FORM_ID}.joint.line7_capitalGains`,
+    SCHEDULE1_OUTPUTS.totalAdditionalIncome,
   ],
-  compute: (ctx) => {
-    const wages      = safeNum(ctx.get(`${FORM_ID}.joint.line1a_w2Wages`));
-    const otherIncome = safeNum(ctx.get(`${FORM_ID}.joint.line9input_otherIncome`));
-    // Add future income lines here as they are implemented
-    return wages + otherIncome;
-  },
+  compute: (ctx) =>
+    Math.max(
+      0,
+      safeNum(ctx.get(`${FORM_ID}.joint.line1a_w2Wages`)) +
+        safeNum(ctx.get(`${FORM_ID}.joint.line2b_taxableInterest`)) +
+        safeNum(ctx.get(`${FORM_ID}.joint.line3b_ordinaryDividends`)) +
+        safeNum(ctx.get(`${FORM_ID}.joint.line7_capitalGains`)) +
+        safeNum(ctx.get(SCHEDULE1_OUTPUTS.totalAdditionalIncome)),
+    ),
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 10 — ADJUSTMENTS TO INCOME
-// ─────────────────────────────────────────────────────────────────────────────
-
 const line10_adjustmentsToIncome: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line10_adjustmentsToIncome`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 10 — Adjustments to Income (Schedule 1 Line 26)',
-  description:        'Total above-the-line deductions from Schedule 1 Line 26.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line10_adjustmentsToIncome`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 10 — Adjustments to Income",
+  description:
+    "Total above-the-line deductions from Schedule 1 Part II (Line 26).",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['deduction.above_the_line'],
-  dependencies:       [SCHEDULE1_OUTPUTS.totalAdjustments],
+  classifications: ["deduction.above_the_line"],
+  dependencies: [SCHEDULE1_OUTPUTS.totalAdjustments],
   compute: (ctx) => safeNum(ctx.get(SCHEDULE1_OUTPUTS.totalAdjustments)),
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 11 — ADJUSTED GROSS INCOME
-// ─────────────────────────────────────────────────────────────────────────────
-
 const line11_adjustedGrossIncome: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line11_adjustedGrossIncome`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 11 — Adjusted Gross Income (AGI)',
-  description:        'Total income (Line 9) minus adjustments (Line 10). Cannot go below zero.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line11_adjustedGrossIncome`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 11 — Adjusted Gross Income",
+  description: "Total income (9) minus adjustments (10). Floor at zero.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
+  classifications: ["intermediate"],
   dependencies: [
     `${FORM_ID}.joint.line9_totalIncome`,
-
     `${FORM_ID}.joint.line10_adjustmentsToIncome`,
   ],
-  compute: (ctx) => {
-    const line9  = safeNum(ctx.get(`${FORM_ID}.joint.line9_totalIncome`));
-    const line10 = safeNum(ctx.get(`${FORM_ID}.joint.line10_adjustmentsToIncome`));
-    return Math.max(0, line9 - line10);
-  },
+  compute: (ctx) =>
+    Math.max(
+      0,
+      safeNum(ctx.get(`${FORM_ID}.joint.line9_totalIncome`)) -
+        safeNum(ctx.get(`${FORM_ID}.joint.line10_adjustmentsToIncome`)),
+    ),
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 12 — STANDARD DEDUCTION
-// ─────────────────────────────────────────────────────────────────────────────
 
 const line12input_primaryAge: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line12input_primaryAge`,
-  kind:               NodeKind.INPUT,
-  label:              'Primary Filer Age as of December 31',
-  description:        'Used for additional standard deduction eligibility (65+).',
-  valueType:          NodeValueType.INTEGER,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line12input_primaryAge`,
+  kind: NodeKind.INPUT,
+  label: "Primary Filer Age as of December 31",
+  description: "For additional standard deduction (65+).",
+  valueType: NodeValueType.INTEGER,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
-  source:             InputSource.PREPARER,
-  questionId:         'f1040.q.primaryAge',
-  defaultValue:       0,
-  validation:         { min: 0, max: 130 },
+  classifications: ["intermediate"],
+  source: InputSource.PREPARER,
+  questionId: "f1040.q.primaryAge",
+  defaultValue: 0,
+  validation: { min: 0, max: 130 },
 };
-
 const line12input_primaryBlind: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line12input_primaryBlind`,
-  kind:               NodeKind.INPUT,
-  label:              'Primary Filer — Legally Blind?',
-  description:        'Qualifies for additional standard deduction.',
-  valueType:          NodeValueType.BOOLEAN,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line12input_primaryBlind`,
+  kind: NodeKind.INPUT,
+  label: "Primary Filer — Legally Blind?",
+  description: "Additional standard deduction.",
+  valueType: NodeValueType.BOOLEAN,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
-  source:             InputSource.PREPARER,
-  questionId:         'f1040.q.primaryBlind',
-  defaultValue:       false,
+  classifications: ["intermediate"],
+  source: InputSource.PREPARER,
+  questionId: "f1040.q.primaryBlind",
+  defaultValue: false,
 };
-
 const line12input_spouseAge: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line12input_spouseAge`,
-  kind:               NodeKind.INPUT,
-  label:              'Spouse Age as of December 31',
-  description:        'Used for spouse additional standard deduction eligibility (65+). MFJ/MFS only.',
-  valueType:          NodeValueType.INTEGER,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line12input_spouseAge`,
+  kind: NodeKind.INPUT,
+  label: "Spouse Age as of December 31",
+  description: "MFJ/MFS only.",
+  valueType: NodeValueType.INTEGER,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
-  source:             InputSource.PREPARER,
-  questionId:         'f1040.q.spouseAge',
-  defaultValue:       0,
-  validation:         { min: 0, max: 130 },
+  classifications: ["intermediate"],
+  source: InputSource.PREPARER,
+  questionId: "f1040.q.spouseAge",
+  defaultValue: 0,
+  validation: { min: 0, max: 130 },
 };
-
 const line12input_spouseBlind: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line12input_spouseBlind`,
-  kind:               NodeKind.INPUT,
-  label:              'Spouse — Legally Blind?',
-  description:        'MFJ/MFS only.',
-  valueType:          NodeValueType.BOOLEAN,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line12input_spouseBlind`,
+  kind: NodeKind.INPUT,
+  label: "Spouse — Legally Blind?",
+  description: "MFJ/MFS only.",
+  valueType: NodeValueType.BOOLEAN,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
-  source:             InputSource.PREPARER,
-  questionId:         'f1040.q.spouseBlind',
-  defaultValue:       false,
+  classifications: ["intermediate"],
+  source: InputSource.PREPARER,
+  questionId: "f1040.q.spouseBlind",
+  defaultValue: false,
 };
-
 const line12input_isDependentFiler: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line12input_isDependentFiler`,
-  kind:               NodeKind.INPUT,
-  label:              'Can Be Claimed as Dependent on Another Return?',
-  description:        'Triggers the dependent filer standard deduction formula (IRC §63(c)(5)).',
-  valueType:          NodeValueType.BOOLEAN,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line12input_isDependentFiler`,
+  kind: NodeKind.INPUT,
+  label: "Can Be Claimed as Dependent?",
+  description: "Triggers IRC §63(c)(5) formula.",
+  valueType: NodeValueType.BOOLEAN,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
-  source:             InputSource.PREPARER,
-  questionId:         'f1040.q.isDependentFiler',
-  defaultValue:       false,
+  classifications: ["intermediate"],
+  source: InputSource.PREPARER,
+  questionId: "f1040.q.isDependentFiler",
+  defaultValue: false,
 };
-
-const line12input_earnedIncome: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line12input_earnedIncome`,
-  kind:               NodeKind.INPUT,
-  label:              'Earned Income (Dependent Filer Standard Deduction)',
-  description:        'Used only when isDependentFiler = true.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+const line12input_earnedIncomeForDependent: NodeDefinition = {
+  id: `${FORM_ID}.joint.line12input_earnedIncome`,
+  kind: NodeKind.INPUT,
+  label: "Earned Income (Dependent Filer Std Deduction)",
+  description: "Used only when isDependentFiler = true.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['income.earned', 'intermediate'],
-  source:             InputSource.PREPARER,
-  questionId:         'f1040.q.earnedIncome',
-  defaultValue:       0,
+  classifications: ["income.earned", "intermediate"],
+  source: InputSource.PREPARER,
+  questionId: "f1040.q.earnedIncome",
+  defaultValue: 0,
 };
 
 const line12_standardDeduction: NodeDefinition = {
@@ -322,245 +361,230 @@ const line12_standardDeduction: NodeDefinition = {
   ],
   compute: (ctx) => {
     const c = getF1040Constants(ctx.taxYear);
-
     const primaryAge   = safeNum(ctx.get(`${FORM_ID}.joint.line12input_primaryAge`));
     const primaryBlind = ctx.get(`${FORM_ID}.joint.line12input_primaryBlind`) as boolean ?? false;
     const spouseAge    = safeNum(ctx.get(`${FORM_ID}.joint.line12input_spouseAge`));
     const spouseBlind  = ctx.get(`${FORM_ID}.joint.line12input_spouseBlind`) as boolean ?? false;
     const isDependent  = ctx.get(`${FORM_ID}.joint.line12input_isDependentFiler`) as boolean ?? false;
-    const earnedIncome = safeNum(ctx.get(`${FORM_ID}.joint.line12input_earnedIncome`));
-    const fs           = ctx.filingStatus;
-
+    const ei = safeNum(ctx.get(`${FORM_ID}.joint.line12input_earnedIncome`));
+    const fs = ctx.filingStatus;
     const base = (() => {
       switch (fs) {
-        case 'married_filing_jointly':     return c.standardDeduction.marriedFilingJointly;
-        case 'married_filing_separately':  return c.standardDeduction.marriedFilingSeparately;
-        case 'head_of_household':          return c.standardDeduction.headOfHousehold;
-        case 'qualifying_surviving_spouse': return c.standardDeduction.qualifyingSurvivingSpouse;
-        default:                           return c.standardDeduction.single;
+        case "married_filing_jointly":
+          return c.standardDeduction.marriedFilingJointly;
+        case "married_filing_separately":
+          return c.standardDeduction.marriedFilingSeparately;
+        case "head_of_household":
+          return c.standardDeduction.headOfHousehold;
+        case "qualifying_surviving_spouse":
+          return c.standardDeduction.qualifyingSurvivingSpouse;
+        default:
+          return c.standardDeduction.single;
       }
     })();
-
     if (isDependent) {
       const { flatMinimum, earnedIncomeAdder } = c.dependentFilerDeduction;
-      return Math.min(Math.max(flatMinimum, earnedIncome + earnedIncomeAdder), base);
+      return Math.min(Math.max(flatMinimum, ei + earnedIncomeAdder), base);
     }
-
     const isSingleRate = fs === 'single' || fs === 'head_of_household';
-    const addlPerCondition = isSingleRate
+    const addl = isSingleRate
       ? c.additionalStandardDeduction.single
       : c.additionalStandardDeduction.marriedOrSurviving;
-
     let count = 0;
     if (primaryAge >= 65) count++;
-    if (primaryBlind)     count++;
+    if (primaryBlind) count++;
     if (ctx.hasSpouse) {
       if (spouseAge >= 65) count++;
-      if (spouseBlind)     count++;
+      if (spouseBlind) count++;
     }
-
-    return base + count * addlPerCondition;
+    return base + count * addl;
   },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 13 — QBI DEDUCTION (deferred)
-// ─────────────────────────────────────────────────────────────────────────────
-
 const line13_qbiDeduction: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line13_qbiDeduction`,
-  kind:               NodeKind.INPUT,
-  label:              'Form 1040 Line 13 — QBI Deduction (§199A)',
-  description:        'Qualified Business Income deduction. Deferred — enter manually if applicable.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line13_qbiDeduction`,
+  kind: NodeKind.INPUT,
+  label: "Form 1040 Line 13 — QBI Deduction (§199A)",
+  description:
+    "Qualified Business Income deduction. Deferred — enter manually.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['deduction.below_the_line'],
-  source:             InputSource.PREPARER,
-  questionId:         'f1040.q.qbiDeduction',
-  defaultValue:       0,
+  classifications: ["deduction.below_the_line"],
+  source: InputSource.PREPARER,
+  questionId: "f1040.q.qbiDeduction",
+  defaultValue: 0,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 15 — TAXABLE INCOME
-// ─────────────────────────────────────────────────────────────────────────────
-
 const line15_taxableIncome: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line15_taxableIncome`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 15 — Taxable Income',
-  description:        'AGI minus standard deduction minus QBI deduction. Cannot be negative.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line15_taxableIncome`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 15 — Taxable Income",
+  description:
+    "AGI (11) minus standard deduction (12) minus QBI (13). Floor at zero.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
+  classifications: ["intermediate"],
   dependencies: [
     `${FORM_ID}.joint.line11_adjustedGrossIncome`,
     `${FORM_ID}.joint.line12_deduction`,
     `${FORM_ID}.joint.line13_qbiDeduction`,
   ],
-  compute: (ctx) => {
-    const agi = safeNum(ctx.get(`${FORM_ID}.joint.line11_adjustedGrossIncome`));
-    const ded = safeNum(ctx.get(`${FORM_ID}.joint.line12_deduction`));
-    const qbi = safeNum(ctx.get(`${FORM_ID}.joint.line13_qbiDeduction`));
-    return Math.max(0, agi - ded - qbi);
-  },
+  compute: (ctx) =>
+    Math.max(
+      0,
+      safeNum(ctx.get(`${FORM_ID}.joint.line11_adjustedGrossIncome`)) -
+        safeNum(ctx.get(`${FORM_ID}.joint.line12_deduction`)) -
+        safeNum(ctx.get(`${FORM_ID}.joint.line13_qbiDeduction`)),
+    ),
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 16 — TAX
-// ─────────────────────────────────────────────────────────────────────────────
-
+/**
+ * Line 16 — Tax.
+ *
+ * QDCGT Worksheet path: when netLongTerm > 0 OR qualifiedDividends > 0.
+ * Ordinary brackets path: all other cases.
+ */
 const line16_tax: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line16_tax`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 16 — Tax',
-  description:        'Tax computed from taxable income (Line 15) using IRS brackets.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line16_tax`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 16 — Tax",
+  description:
+    "Tax from QDCGT Worksheet (preferential rates when net LTCG > 0 or qualified dividends > 0) or ordinary brackets. Recomputes whenever capital gains or dividend data changes.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
-  dependencies:       [`${FORM_ID}.joint.line15_taxableIncome`],
+  classifications: ["intermediate"],
+  dependencies: [
+    `${FORM_ID}.joint.line15_taxableIncome`,
+    `${FORM_ID}.joint.line3a_qualifiedDividends`,
+    SCHEDULE_D_OUTPUTS.netLongTerm,
+  ],
   compute: (ctx) => {
-    const c  = getF1040Constants(ctx.taxYear);
-    const ti = safeNum(ctx.get(`${FORM_ID}.joint.line15_taxableIncome`));
-    return computeTax(ti, ctx.filingStatus, c);
+    const taxableIncome = safeNum(
+      ctx.get(`${FORM_ID}.joint.line15_taxableIncome`),
+    );
+    const qualifiedDividends = safeNum(
+      ctx.get(`${FORM_ID}.joint.line3a_qualifiedDividends`),
+    );
+    const netLongTerm = safeNum(ctx.get(SCHEDULE_D_OUTPUTS.netLongTerm));
+    const f1040C = getF1040Constants(ctx.taxYear);
+    const schedDC = getScheduleDConstants(ctx.taxYear);
+
+    if (netLongTerm > 0 || qualifiedDividends > 0) {
+      return computeQDCGTTax(
+        taxableIncome,
+        qualifiedDividends,
+        netLongTerm,
+        ctx.filingStatus,
+        schedDC,
+        (ord) => computeTax(ord, ctx.filingStatus, f1040C),
+      );
+    }
+
+    return computeTax(taxableIncome, ctx.filingStatus, f1040C);
   },
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 17 — ADDITIONAL TAXES
-// ─────────────────────────────────────────────────────────────────────────────
 
 const line17_additionalTaxes: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line17_additionalTaxes`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 17 — Additional Taxes (Schedule 2 Line 44)',
-  description:        'Additional taxes from Schedule 2: early distribution penalties, HSA penalties, etc.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line17_additionalTaxes`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 17 — Additional Taxes (Schedule 2)",
+  description: "Additional taxes from Schedule 2.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['penalty'],
-  dependencies:       [SCHEDULE2_OUTPUTS.totalAdditionalTaxes],
+  classifications: ["penalty"],
+  dependencies: [SCHEDULE2_OUTPUTS.totalAdditionalTaxes],
   compute: (ctx) => safeNum(ctx.get(SCHEDULE2_OUTPUTS.totalAdditionalTaxes)),
-  isApplicable: (ctx) => safeNum(ctx.get(SCHEDULE2_OUTPUTS.totalAdditionalTaxes)) > 0,
+  isApplicable: (ctx) =>
+    safeNum(ctx.get(SCHEDULE2_OUTPUTS.totalAdditionalTaxes)) > 0,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 24 — TOTAL TAX
-// ─────────────────────────────────────────────────────────────────────────────
-
 const line24_totalTax: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line24_totalTax`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 24 — Total Tax',
-  description:        'Regular tax (Line 16) + additional taxes (Line 17). Lines 18-23 deferred.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line24_totalTax`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 24 — Total Tax",
+  description: "Tax (16) + additional taxes (17).",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['intermediate'],
+  classifications: ["intermediate"],
   dependencies: [
     `${FORM_ID}.joint.line16_tax`,
     `${FORM_ID}.joint.line17_additionalTaxes`,
   ],
-  compute: (ctx) => {
-    return safeNum(ctx.get(`${FORM_ID}.joint.line16_tax`)) +
-           safeNum(ctx.get(`${FORM_ID}.joint.line17_additionalTaxes`));
-  },
+  compute: (ctx) =>
+    safeNum(ctx.get(`${FORM_ID}.joint.line16_tax`)) +
+    safeNum(ctx.get(`${FORM_ID}.joint.line17_additionalTaxes`)),
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LINE 25a — W-2 FEDERAL WITHHOLDING
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Line 25a — W-2 federal income tax withheld
- *
- * Pass-through from the W-2 joint withholding aggregator.
- * This is the starting point for the tax payments section.
- * Lines 25b (1099) and 25c (other) are deferred.
- */
 const line25a_w2Withholding: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line25a_w2Withholding`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 25a — W-2 Federal Income Tax Withheld',
-  description:        'Federal income tax withheld shown on W-2(s) for both filers. From W-2 Box 2 aggregator.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line25a_w2Withholding`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 25a — W-2 Federal Income Tax Withheld",
+  description: "W-2 Box 2 federal withholding for both filers.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['withholding'],
-  dependencies:       [W2_OUTPUTS.jointWithholding],
+  classifications: ["withholding"],
+  dependencies: [W2_OUTPUTS.jointWithholding],
   compute: (ctx) => safeNum(ctx.get(W2_OUTPUTS.jointWithholding)),
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EXPORTS
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
- * All Form 1040 node definitions.
- *
- * IMPORTANT: W2_INITIAL_AGGREGATORS must also be registered alongside these
- * nodes so that Line 1a and Line 25a have valid dependencies from startup:
- *
- *   engine.registerNodes([
- *     ...F8889_NODES,
- *     ...F5329_NODES,
- *     ...SCHEDULE1_NODES,
- *     ...SCHEDULE2_NODES,
- *     ...W2_INITIAL_AGGREGATORS,   ← register before F1040_NODES
- *     ...F1040_NODES,
- *   ]);
+ * Registration order (add new entries before W2_INITIAL_AGGREGATORS):
+ *   ...F8949_INITIAL_AGGREGATORS,
+ *   ...SCHEDULE_D_NODES,
  */
 export const F1040_NODES: NodeDefinition[] = [
-  // Line 1a
   line1a_w2Wages,
-  // Line 9 inputs + computed
-  line9input_otherIncome,
+  line2a_taxExemptInterest,
+  line2b_taxableInterest,
+  line3a_qualifiedDividends,
+  line3b_ordinaryDividends,
+  line7_capitalGains,
   line9_totalIncome,
-  earnedIncome, // ← add this
-  // Line 10
+  earnedIncome,
   line10_adjustmentsToIncome,
-  // Line 11
   line11_adjustedGrossIncome,
-  // Line 12 inputs
   line12input_primaryAge,
   line12input_primaryBlind,
   line12input_spouseAge,
   line12input_spouseBlind,
   line12input_isDependentFiler,
-  line12input_earnedIncome,
-  // Line 12 computed
+  line12input_earnedIncomeForDependent,
   line12_standardDeduction,
-  // Line 13
   line13_qbiDeduction,
-  // Line 15
   line15_taxableIncome,
-  // Line 16
   line16_tax,
-  // Lines 17, 24
   line17_additionalTaxes,
   line24_totalTax,
-  // Line 25a
   line25a_w2Withholding,
 ];
 
 export const F1040_OUTPUTS = {
   w2Wages: `${FORM_ID}.joint.line1a_w2Wages`,
+  taxExemptInterest: `${FORM_ID}.joint.line2a_taxExemptInterest`,
+  taxableInterest: `${FORM_ID}.joint.line2b_taxableInterest`,
+  qualifiedDividends: `${FORM_ID}.joint.line3a_qualifiedDividends`,
+  ordinaryDividends: `${FORM_ID}.joint.line3b_ordinaryDividends`,
+  capitalGains: `${FORM_ID}.joint.line7_capitalGains`,
   totalIncome: `${FORM_ID}.joint.line9_totalIncome`,
-  earnedIncome: `${FORM_ID}.joint.earnedIncome`, // ← add this
+  earnedIncome: `${FORM_ID}.joint.earnedIncome`,
   adjustedGrossIncome: `${FORM_ID}.joint.line11_adjustedGrossIncome`,
   standardDeduction: `${FORM_ID}.joint.line12_deduction`,
   taxableIncome: `${FORM_ID}.joint.line15_taxableIncome`,
