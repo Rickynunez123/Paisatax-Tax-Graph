@@ -35,6 +35,9 @@ import {
   NodeValueType,
   InputSource,
 } from '../../../core/graph/node.types';
+import { earnedIncome } from "./derived";
+
+
 
 import { SCHEDULE1_OUTPUTS } from '../schedule1/nodes';
 import { SCHEDULE2_OUTPUTS } from '../schedule2/nodes';
@@ -189,6 +192,7 @@ const line11_adjustedGrossIncome: NodeDefinition = {
   classifications:    ['intermediate'],
   dependencies: [
     `${FORM_ID}.joint.line9_totalIncome`,
+
     `${FORM_ID}.joint.line10_adjustmentsToIncome`,
   ],
   compute: (ctx) => {
@@ -526,6 +530,7 @@ export const F1040_NODES: NodeDefinition[] = [
   // Line 9 inputs + computed
   line9input_otherIncome,
   line9_totalIncome,
+  earnedIncome, // ← add this
   // Line 10
   line10_adjustmentsToIncome,
   // Line 11
@@ -553,13 +558,14 @@ export const F1040_NODES: NodeDefinition[] = [
 ];
 
 export const F1040_OUTPUTS = {
-  w2Wages:             `${FORM_ID}.joint.line1a_w2Wages`,
-  totalIncome:         `${FORM_ID}.joint.line9_totalIncome`,
+  w2Wages: `${FORM_ID}.joint.line1a_w2Wages`,
+  totalIncome: `${FORM_ID}.joint.line9_totalIncome`,
+  earnedIncome: `${FORM_ID}.joint.earnedIncome`, // ← add this
   adjustedGrossIncome: `${FORM_ID}.joint.line11_adjustedGrossIncome`,
-  standardDeduction:   `${FORM_ID}.joint.line12_deduction`,
-  taxableIncome:       `${FORM_ID}.joint.line15_taxableIncome`,
-  tax:                 `${FORM_ID}.joint.line16_tax`,
-  additionalTaxes:     `${FORM_ID}.joint.line17_additionalTaxes`,
-  totalTax:            `${FORM_ID}.joint.line24_totalTax`,
-  w2Withholding:       `${FORM_ID}.joint.line25a_w2Withholding`,
+  standardDeduction: `${FORM_ID}.joint.line12_deduction`,
+  taxableIncome: `${FORM_ID}.joint.line15_taxableIncome`,
+  tax: `${FORM_ID}.joint.line16_tax`,
+  additionalTaxes: `${FORM_ID}.joint.line17_additionalTaxes`,
+  totalTax: `${FORM_ID}.joint.line24_totalTax`,
+  w2Withholding: `${FORM_ID}.joint.line25a_w2Withholding`,
 } as const;
