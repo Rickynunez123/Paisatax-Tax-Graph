@@ -1,12 +1,16 @@
 /**
  * SCHEDULE 1 — ADDITIONAL INCOME AND ADJUSTMENTS
  *
+ * CHANGES FROM PREVIOUS VERSION (Schedule C + SE wave):
+ *   ~ Line 3  — was deferred INPUT, now COMPUTED from scheduleC.joint.totalNetProfit
+ *   ~ Line 15 — was deferred INPUT, now COMPUTED from scheduleSE.joint.line6_deductibleHalf
+ *
  * WHAT IS IMPLEMENTED (✅) vs DEFERRED (🚧):
  *
  *   Part I — Additional Income
  *   🚧 Line 1   — Taxable refunds of state/local income taxes    (input, deferred)
  *   🚧 Line 2a  — Alimony received (pre-2019 divorce only)       (input, deferred)
- *   🚧 Line 3   — Business income/loss (Schedule C)              (input, deferred → Schedule C)
+ *   ✅ Line 3   — Business income/loss (Schedule C)              (computed from Schedule C)
  *   🚧 Line 4   — Other gains/losses (Form 4797)                 (input, deferred)
  *   🚧 Line 5   — Rental/royalty/partnership/S-corp (Schedule E) (input, deferred → Schedule E)
  *   🚧 Line 6   — Farm income/loss (Schedule F)                  (input, deferred → Schedule F)
@@ -19,7 +23,7 @@
  *   🚧 Line 12  — Business expenses (Form 2106)                  (input, deferred)
  *   ✅ Line 13  — HSA deduction (Form 8889)                      (computed from F8889)
  *   🚧 Line 14  — Moving expenses (Form 3903 — Military only)    (input, deferred)
- *   🚧 Line 15  — Deductible part of self-employment tax         (input, deferred → Schedule SE)
+ *   ✅ Line 15  — Deductible part of self-employment tax         (computed from Schedule SE)
  *   🚧 Line 16  — Self-employed SEP/SIMPLE/qualified plans       (input, deferred)
  *   🚧 Line 17  — Self-employed health insurance deduction       (input, deferred)
  *   🚧 Line 18  — Penalty on early withdrawal of savings         (input, deferred)
@@ -33,16 +37,6 @@
  * HOW PART I CONNECTS TO FORM 1040:
  *   Schedule 1 Line 10 → Form 1040 Line 8 (additional income)
  *   Form 1040 Line 9 (total income) = Line 1a (W-2) + Line 8 (Schedule 1 Line 10)
- *
- * UPGRADE PATH FOR DEFERRED PART I LINES:
- *   When Schedule C is built:
- *     - Replace line3_businessIncome INPUT with a COMPUTED node that reads
- *       from schedule-c's net profit output
- *     - earnedIncome in f1040/derived.ts gains scheduleC_netProfit dependency
- *   When Schedule E is built:
- *     - Replace line5_rentalIncome INPUT similarly
- *   When Schedule SE is built:
- *     - Replace line15_deductibleSETax INPUT in Part II with computed node
  *
  * IRS References:
  *   Schedule 1 Instructions (2025)
@@ -59,6 +53,8 @@ import {
 } from '../../../core/graph/node.types';
 
 import { F8889_OUTPUTS } from '../f8889/nodes';
+import { SCHEDULE_C_OUTPUTS } from "../schedule-c/nodes";
+import { SCHEDULE_SE_OUTPUTS } from "../schedule-se/nodes";
 
 const APPLICABLE_YEARS = ['2024', '2025'];
 const FORM_ID          = 'schedule1';
@@ -79,26 +75,26 @@ function safeNum(value: unknown): number {
  * allowNegative: true because income lines can be losses (Sch C, E, F).
  */
 function deferredIncome(
-  lineId:     string,
+  lineId: string,
   lineNumber: string,
-  label:      string,
+  label: string,
   questionId: string,
   allowNegative = false,
 ): NodeDefinition {
   return {
-    id:                 `${FORM_ID}.joint.${lineId}`,
-    kind:               NodeKind.INPUT,
-    label:              `Schedule 1 Line ${lineNumber} — ${label}`,
-    description:        `${label}. Deferred — will be computed from upstream form when implemented. Enter manually if applicable.`,
-    valueType:          NodeValueType.CURRENCY,
+    id: `${FORM_ID}.joint.${lineId}`,
+    kind: NodeKind.INPUT,
+    label: `Schedule 1 Line ${lineNumber} — ${label}`,
+    description: `${label}. Deferred — will be computed from upstream form when implemented. Enter manually if applicable.`,
+    valueType: NodeValueType.CURRENCY,
     allowNegative,
-    owner:              NodeOwner.JOINT,
-    repeatable:         false,
+    owner: NodeOwner.JOINT,
+    repeatable: false,
     applicableTaxYears: APPLICABLE_YEARS,
-    classifications:    ['income.other'],
-    source:             InputSource.PREPARER,
+    classifications: ["income.other"],
+    source: InputSource.PREPARER,
     questionId,
-    defaultValue:       0,
+    defaultValue: 0,
   };
 }
 
@@ -160,16 +156,35 @@ const line2a_alimonyReceived = deferredIncome(
 
 /**
  * Line 3 — Business income or (loss) from Schedule C.
- * Can be negative (a loss). Feeds earnedIncome in derived.ts when Schedule C built.
- * 🚧 DEFERRED — will become COMPUTED when Schedule C is implemented.
+ *
+ * ✅ IMPLEMENTED — now COMPUTED from scheduleC.joint.totalNetProfit.
+ *
+ * Previously a deferred INPUT. Now wired directly to the Schedule C
+ * joint aggregator (sum of primary + spouse net profit/loss across
+ * all Schedule C slots). Can be negative when expenses exceed income.
+ *
+ * Flows to:
+ *   → line10_totalAdditionalIncome (Part I total → Form 1040 Line 8)
+ *   → earnedIncome in f1040/derived.ts (credit calculations)
+ *   → scheduleSE.joint.line3_netProfitFromSE (floored at 0 for SE tax)
+ *
+ * IRS: Schedule 1 Instructions, Line 3
  */
-const line3_businessIncome = deferredIncome(
-  'line3_businessIncome',
-  '3',
-  'Business Income or (Loss) — Schedule C',
-  'schedule1.q.businessIncome',
-  true, // allowNegative — Schedule C net loss is valid
-);
+const line3_businessIncome: NodeDefinition = {
+  id: `${FORM_ID}.joint.line3_businessIncome`,
+  kind: NodeKind.COMPUTED,
+  label: "Schedule 1 Line 3 — Business Income or (Loss)",
+  description:
+    "Net profit or loss from all Schedule C businesses (primary + spouse). Negative when total business expenses exceed total business receipts. Flows to Form 1040 Line 8 (via Line 10) and Schedule SE.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: true,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
+  applicableTaxYears: ["2025"], // Schedule C only available from 2025 wave
+  classifications: ["income.selfEmployment"],
+  dependencies: [SCHEDULE_C_OUTPUTS.jointNetProfit],
+  compute: (ctx) => safeNum(ctx.get(SCHEDULE_C_OUTPUTS.jointNetProfit)),
+};
 
 /**
  * Line 4 — Other gains or (losses) from Form 4797.
@@ -303,6 +318,39 @@ const line12_businessExpenses = deferredAdjustment(
   "schedule1.q.businessExpenses",
 );
 
+/**
+ * Line 13 — HSA deduction from Form 8889.
+ * JOINT node that sums primary + spouse HSA deductions.
+ * Both spouse instance IDs are in the formal dependencies array.
+ * The engine materializes f8889.spouse.line13_hsaDeduction when hasSpouse = true.
+ */
+const line13_hsaDeduction: NodeDefinition = {
+  id:                 `${FORM_ID}.joint.line13_hsaDeduction`,
+  kind:               NodeKind.COMPUTED,
+  label:              'Schedule 1 Line 13 — HSA Deduction (Form 8889)',
+  description:        'HSA deduction from Form 8889 Line 13. Includes both primary and spouse deductions when filing jointly.',
+  valueType:          NodeValueType.CURRENCY,
+  allowNegative:      false,
+  owner:              NodeOwner.JOINT,
+  repeatable:         false,
+  applicableTaxYears: APPLICABLE_YEARS,
+  classifications:    ['deduction.above_the_line', 'contribution.hsa'],
+  dependencies: [
+    F8889_OUTPUTS.hsaDeduction,             // f8889.primary.line13_hsaDeduction
+    'f8889.spouse.line13_hsaDeduction',     // materialized by engine when hasSpouse = true
+  ],
+  compute: (ctx) => {
+    const primary = safeNum(ctx.get(F8889_OUTPUTS.hsaDeduction));
+    const spouse  = safeNum(ctx.get('f8889.spouse.line13_hsaDeduction'));
+    return primary + spouse;
+  },
+  isApplicable: (ctx) => {
+    const primary = safeNum(ctx.get(F8889_OUTPUTS.hsaDeduction));
+    const spouse  = safeNum(ctx.get('f8889.spouse.line13_hsaDeduction'));
+    return primary + spouse > 0;
+  },
+};
+
 const line14_movingExpenses = deferredAdjustment(
   "line14_movingExpenses",
   "14",
@@ -312,16 +360,43 @@ const line14_movingExpenses = deferredAdjustment(
 
 /**
  * Line 15 — Deductible part of self-employment tax.
- * 🚧 DEFERRED — will become COMPUTED when Schedule SE is built.
- * Schedule SE computes total SE tax; half is deductible here.
- * This is one of the few deductions that depends on a tax computation.
+ *
+ * ✅ IMPLEMENTED — now COMPUTED from scheduleSE.joint.line6_deductibleHalf.
+ *
+ * Previously a deferred INPUT. Now wired to Schedule SE Line 6, which
+ * computes exactly 50% of total SE tax (IRC §164(f)). This mimics the
+ * employer's deduction for FICA taxes paid on employee wages.
+ *
+ * Flows to:
+ *   → line26_totalAdjustments (Part II total → Form 1040 Line 10)
+ *   → Reduces AGI, which may affect EITC, child tax credit, IRMAA, etc.
+ *
+ * Note: This deduction is computed AFTER SE tax is known — the SE tax
+ * itself depends on Schedule C net profit, creating the chain:
+ *   Schedule C Line 31 → Schedule SE Line 5 (SE tax) → Schedule SE Line 6
+ *   → Schedule 1 Line 15 → AGI
+ *
+ * The graph engine resolves this dependency order automatically.
+ *
+ * IRS: Schedule 1 Instructions, Line 15; IRC §164(f)
  */
-const line15_deductibleSETax = deferredAdjustment(
-  "line15_deductibleSETax",
-  "15",
-  "Deductible Part of Self-Employment Tax (Schedule SE)",
-  "schedule1.q.seTax",
-);
+const line15_deductibleSETax: NodeDefinition = {
+  id: `${FORM_ID}.joint.line15_deductibleSETax`,
+  kind: NodeKind.COMPUTED,
+  label: "Schedule 1 Line 15 — Deductible Part of Self-Employment Tax",
+  description:
+    "50% of SE tax (Schedule SE Line 6). Deductible above-the-line per IRC §164(f). Reduces AGI. Computed from Schedule SE — do not enter manually.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
+  applicableTaxYears: ["2025"], // Schedule SE only available from 2025 wave
+  classifications: ["deduction.above_the_line"],
+  dependencies: [SCHEDULE_SE_OUTPUTS.deductibleHalf],
+  compute: (ctx) => safeNum(ctx.get(SCHEDULE_SE_OUTPUTS.deductibleHalf)),
+  isApplicable: (ctx) =>
+    safeNum(ctx.get(SCHEDULE_SE_OUTPUTS.deductibleHalf)) > 0,
+};
 
 const line16_selfEmployedPlans = deferredAdjustment(
   "line16_selfEmployedPlans",
@@ -380,44 +455,6 @@ const line23_otherAdjustments = deferredAdjustment(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LINE 13 — HSA DEDUCTION ✅ IMPLEMENTED
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Line 13 — HSA deduction from Form 8889.
- * JOINT node that sums primary + spouse HSA deductions.
- * Both spouse instance IDs are in the formal dependencies array.
- * The engine materializes f8889.spouse.line13_hsaDeduction when hasSpouse = true.
- */
-const line13_hsaDeduction: NodeDefinition = {
-  id: `${FORM_ID}.joint.line13_hsaDeduction`,
-  kind: NodeKind.COMPUTED,
-  label: "Schedule 1 Line 13 — HSA Deduction (Form 8889)",
-  description:
-    "HSA deduction from Form 8889 Line 13. Includes both primary and spouse deductions when filing jointly.",
-  valueType: NodeValueType.CURRENCY,
-  allowNegative: false,
-  owner: NodeOwner.JOINT,
-  repeatable: false,
-  applicableTaxYears: APPLICABLE_YEARS,
-  classifications: ["deduction.above_the_line", "contribution.hsa"],
-  dependencies: [
-    F8889_OUTPUTS.hsaDeduction, // f8889.primary.line13_hsaDeduction
-    "f8889.spouse.line13_hsaDeduction", // materialized by engine when hasSpouse = true
-  ],
-  compute: (ctx) => {
-    const primary = safeNum(ctx.get(F8889_OUTPUTS.hsaDeduction));
-    const spouse = safeNum(ctx.get("f8889.spouse.line13_hsaDeduction"));
-    return primary + spouse;
-  },
-  isApplicable: (ctx) => {
-    const primary = safeNum(ctx.get(F8889_OUTPUTS.hsaDeduction));
-    const spouse = safeNum(ctx.get("f8889.spouse.line13_hsaDeduction"));
-    return primary + spouse > 0;
-  },
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // LINE 26 — TOTAL ADJUSTMENTS ✅ IMPLEMENTED
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -469,21 +506,21 @@ const line26_totalAdjustments: NodeDefinition = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const SCHEDULE1_NODES: NodeDefinition[] = [
-  // Part I — Additional Income (deferred stubs)
+  // Part I — Additional Income
   line1_taxableRefunds,
   line2a_alimonyReceived,
-  line3_businessIncome,
+  line3_businessIncome, // ← now COMPUTED from Schedule C
   line4_otherGains,
   line5_rentalIncome,
   line6_farmIncome,
   line7_unemploymentCompensation,
   line8z_otherIncome,
   line10_totalAdditionalIncome, // ← Part I total
-  // Part II — Adjustments (deferred stubs)
+  // Part II — Adjustments
   line11_educatorExpenses,
   line12_businessExpenses,
   line14_movingExpenses,
-  line15_deductibleSETax,
+  line15_deductibleSETax, // ← now COMPUTED from Schedule SE
   line16_selfEmployedPlans,
   line17_selfEmployedHealthInsurance,
   line18_penaltyEarlyWithdrawal,

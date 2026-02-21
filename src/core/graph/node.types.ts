@@ -462,27 +462,30 @@ export type NodeDefinition = InputNodeDefinition | ComputedNodeDefinition
  * Using a string union allows easy extension without breaking existing code.
  */
 export type NodeClassificationTag =
-  | 'income.earned'
-  | 'income.passive'
-  | 'income.portfolio'
-  | 'income.other'
-  | 'deduction.above_the_line'
-  | 'deduction.below_the_line'
-  | 'deduction.itemized'
-  | 'credit.refundable'
-  | 'credit.nonrefundable'
-  | 'contribution.retirement'
-  | 'contribution.hsa'
-  | 'contribution.education'
-  | 'contribution.other'
-  | 'distribution.retirement'
-  | 'distribution.hsa'
-  | 'distribution.education'
-  | 'distribution.other'
-  | 'penalty'
-  | 'withholding'
-  | 'payment'
-  | 'intermediate'  // Internal calculation — not shown in summary views
+  | "income.earned"
+  | "income.passive"
+  | "income.portfolio"
+  | "income.other"
+  | "income.selfEmployment"
+  | "tax.selfEmployment"
+  | "expense.business"
+  | "deduction.above_the_line"
+  | "deduction.below_the_line"
+  | "deduction.itemized"
+  | "credit.refundable"
+  | "credit.nonrefundable"
+  | "contribution.retirement"
+  | "contribution.hsa"
+  | "contribution.education"
+  | "contribution.other"
+  | "distribution.retirement"
+  | "distribution.hsa"
+  | "distribution.education"
+  | "distribution.other"
+  | "penalty"
+  | "withholding"
+  | "payment"
+  | "intermediate";  // Internal calculation — not shown in summary views
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPE GUARDS

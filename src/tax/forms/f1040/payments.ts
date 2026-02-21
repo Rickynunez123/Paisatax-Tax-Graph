@@ -2,15 +2,16 @@
  * FORM 1040 — ADDENDUM
  * Lines 19–38: Credits, Payments, and Refund/Amount Owed
  *
- * CHANGES FROM PREVIOUS VERSION:
- *   Line 25b — was a deferred INPUT, now COMPUTED from Schedule B
- *   (1099-INT Box 4 + 1099-DIV Box 4 backup withholding totals)
+ * CHANGES FROM PREVIOUS VERSION (Schedule C + SE wave):
+ *   ~ Line 25b — now also includes 1099-NEC Box 4 backup withholding
+ *     (f1099nec.primary.totalWithholding + f1099nec.spouse.totalWithholding)
+ *     alongside the existing Schedule B withholding (1099-INT + 1099-DIV).
  *
  * WHAT IS IMPLEMENTED (✅) vs DEFERRED (🚧):
  *   ✅ Line 20 — Schedule 3 non-refundable credits
  *   ✅ Line 22 — Total tax minus credits
  *   ✅ Line 25a — W-2 withholding (in nodes.ts)
- *   ✅ Line 25b — 1099 withholding (now computed from Schedule B)
+ *   ✅ Line 25b — 1099 withholding (Schedule B backup + 1099-NEC backup)
  *   🚧 Line 25c — Other withholding (deferred input)
  *   ✅ Line 26 — Total withholding (25a + 25b + 25c)
  *   ✅ Line 27 — EIC (deferred input)
@@ -18,6 +19,21 @@
  *   ✅ Line 33 — Total payments
  *   ✅ Line 34 — Refund (if overpaid)
  *   ✅ Line 37 — Amount owed (if underpaid)
+ *
+ * LINE 25b AGGREGATION STRATEGY:
+ *   All 1099-series backup withholding flows into Line 25b. As new 1099 forms
+ *   are built, add their withholding aggregators to this node's dependencies
+ *   and compute function:
+ *
+ *   Current contributors:
+ *     ✅ Schedule B      — 1099-INT Box 4 + 1099-DIV Box 4 (SCHEDULE_B_OUTPUTS.withholding1099)
+ *     ✅ Form 1099-NEC   — Box 4 backup withholding (primary + spouse)
+ *
+ *   Future contributors (add when built):
+ *     🚧 Form 1099-B    — Box 4 federal withholding
+ *     🚧 Form 1099-R    — Box 4 federal withholding
+ *     🚧 Form 1099-G    — Box 4 federal withholding (unemployment)
+ *     🚧 Form 1099-MISC — Box 4 federal withholding
  *
  * IRS References:
  *   Form 1040 Instructions (2025), Lines 19–38
@@ -33,6 +49,7 @@ import {
 
 import { SCHEDULE3_OUTPUTS } from "../schedule3/nodes";
 import { SCHEDULE_B_OUTPUTS } from "../schedule-b/nodes";
+import { F1099NEC_OUTPUTS } from "../f1099nec/nodes";
 
 const APPLICABLE_YEARS = ['2025'];
 const FORM_ID          = 'f1040';
@@ -47,19 +64,21 @@ function safeNum(value: unknown): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const line20_schedule3Credits: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line20_schedule3Credits`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 20 — Schedule 3 Non-Refundable Credits',
-  description:        'Total non-refundable credits from Schedule 3 Line 8.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line20_schedule3Credits`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 20 — Schedule 3 Non-Refundable Credits",
+  description: "Total non-refundable credits from Schedule 3 Line 8.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['credit.nonrefundable'],
-  dependencies:       [SCHEDULE3_OUTPUTS.totalNonRefundableCredits],
-  compute: (ctx) => safeNum(ctx.get(SCHEDULE3_OUTPUTS.totalNonRefundableCredits)),
-  isApplicable: (ctx) => safeNum(ctx.get(SCHEDULE3_OUTPUTS.totalNonRefundableCredits)) > 0,
+  classifications: ["credit.nonrefundable"],
+  dependencies: [SCHEDULE3_OUTPUTS.totalNonRefundableCredits],
+  compute: (ctx) =>
+    safeNum(ctx.get(SCHEDULE3_OUTPUTS.totalNonRefundableCredits)),
+  isApplicable: (ctx) =>
+    safeNum(ctx.get(SCHEDULE3_OUTPUTS.totalNonRefundableCredits)) > 0,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,35 +108,63 @@ const line22_taxAfterCredits: NodeDefinition = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LINE 25b — 1099 WITHHOLDING (now COMPUTED from Schedule B)
+// LINE 25b — 1099 WITHHOLDING (COMPUTED — Schedule B + 1099-NEC + future 1099s)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Line 25b — Federal income tax withheld from 1099s.
  *
- * Previously a deferred INPUT. Now COMPUTED from Schedule B which
- * aggregates backup withholding from 1099-INT (Box 4) and 1099-DIV (Box 4).
+ * Aggregates backup withholding from all 1099 series forms. Each 1099
+ * form type contributes its Box 4 (federal withholding) independently.
+ * This approach lets each form be built independently and wired here
+ * without touching the other contributors.
  *
- * When 1099-B (capital gains) and other 1099s are built, their withholding
- * nodes should be added to Schedule B's joint1099Withholding aggregator
- * (or a separate aggregator), and wired here.
+ * Current contributors:
+ *   - SCHEDULE_B_OUTPUTS.withholding1099     — 1099-INT + 1099-DIV Box 4
+ *   - F1099NEC_OUTPUTS.primaryTotalWithholding — 1099-NEC Box 4 (primary)
+ *   - F1099NEC_OUTPUTS.spouseTotalWithholding  — 1099-NEC Box 4 (spouse)
+ *
+ * Note: 1099-NEC backup withholding is rare in practice (only applies
+ * when payer received IRS B-notice for missing/incorrect TIN), but
+ * must be captured when present.
  */
 const line25b_1099Withholding: NodeDefinition = {
   id: `${FORM_ID}.joint.line25b_1099Withholding`,
   kind: NodeKind.COMPUTED,
   label: "Form 1040 Line 25b — 1099 Federal Income Tax Withheld",
   description:
-    "Federal income tax withheld on 1099 forms (interest and dividend backup withholding). From Schedule B aggregator. Will expand as 1099-B and other 1099s are built.",
+    "Federal income tax withheld on 1099 forms. Aggregates: Schedule B (1099-INT + 1099-DIV Box 4 backup), 1099-NEC Box 4 backup withholding (primary + spouse). Expand as 1099-B, 1099-R, and other 1099s are built.",
   valueType: NodeValueType.CURRENCY,
   allowNegative: false,
   owner: NodeOwner.JOINT,
   repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
   classifications: ["withholding"],
-  dependencies: [SCHEDULE_B_OUTPUTS.withholding1099],
-  compute: (ctx) => safeNum(ctx.get(SCHEDULE_B_OUTPUTS.withholding1099)),
-  isApplicable: (ctx) =>
-    safeNum(ctx.get(SCHEDULE_B_OUTPUTS.withholding1099)) > 0,
+  dependencies: [
+    SCHEDULE_B_OUTPUTS.withholding1099, // 1099-INT + 1099-DIV
+    F1099NEC_OUTPUTS.primaryTotalWithholding, // 1099-NEC primary
+    F1099NEC_OUTPUTS.spouseTotalWithholding, // 1099-NEC spouse
+    // Future 1099s — add here:
+    // F1099B_OUTPUTS.jointWithholding,
+    // F1099R_OUTPUTS.jointWithholding,
+    // F1099G_OUTPUTS.jointWithholding,
+  ],
+  compute: (ctx) => {
+    const schedB = safeNum(ctx.get(SCHEDULE_B_OUTPUTS.withholding1099));
+    const necPrimary = safeNum(
+      ctx.get(F1099NEC_OUTPUTS.primaryTotalWithholding),
+    );
+    const necSpouse = safeNum(ctx.get(F1099NEC_OUTPUTS.spouseTotalWithholding));
+    return schedB + necPrimary + necSpouse;
+  },
+  isApplicable: (ctx) => {
+    const schedB = safeNum(ctx.get(SCHEDULE_B_OUTPUTS.withholding1099));
+    const necPrimary = safeNum(
+      ctx.get(F1099NEC_OUTPUTS.primaryTotalWithholding),
+    );
+    const necSpouse = safeNum(ctx.get(F1099NEC_OUTPUTS.spouseTotalWithholding));
+    return schedB + necPrimary + necSpouse > 0;
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -193,19 +240,22 @@ const line27_earnedIncomeCredit: NodeDefinition = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const line31_schedule3Payments: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line31_schedule3Payments`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 31 — Schedule 3 Other Payments and Credits',
-  description:        'Total other payments and refundable credits from Schedule 3 Line 15.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line31_schedule3Payments`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 31 — Schedule 3 Other Payments and Credits",
+  description:
+    "Total other payments and refundable credits from Schedule 3 Line 15.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['payment', 'credit.refundable'],
-  dependencies:       [SCHEDULE3_OUTPUTS.totalOtherPaymentsAndCredits],
-  compute: (ctx) => safeNum(ctx.get(SCHEDULE3_OUTPUTS.totalOtherPaymentsAndCredits)),
-  isApplicable: (ctx) => safeNum(ctx.get(SCHEDULE3_OUTPUTS.totalOtherPaymentsAndCredits)) > 0,
+  classifications: ["payment", "credit.refundable"],
+  dependencies: [SCHEDULE3_OUTPUTS.totalOtherPaymentsAndCredits],
+  compute: (ctx) =>
+    safeNum(ctx.get(SCHEDULE3_OUTPUTS.totalOtherPaymentsAndCredits)),
+  isApplicable: (ctx) =>
+    safeNum(ctx.get(SCHEDULE3_OUTPUTS.totalOtherPaymentsAndCredits)) > 0,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

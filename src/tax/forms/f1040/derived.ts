@@ -5,8 +5,6 @@ import {
   NodeValueType,
 } from '../../../core/graph/node.types';
 
-
-
 const APPLICABLE_YEARS = ["2024", "2025"];
 const FORM_ID          = 'f1040';
 
@@ -15,7 +13,6 @@ function safeNum(value: unknown): number {
   return 0;
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // EARNED INCOME (COMPOSITE) — used by F2441, F8812, EIC, and other credits
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,29 +20,35 @@ function safeNum(value: unknown): number {
 /**
  * Earned Income — composite node for credit calculations.
  *
- * This is NOT a printed Form 1040 line. It is a derived quantity that
- * aggregates all truly *earned* income sources for use by:
+ * CHANGES FROM PREVIOUS VERSION (Schedule C + SE wave):
+ *   - Removed dependency on schedule1.joint.line3_businessIncome (now COMPUTED
+ *     from Schedule C, so the data already flows through that node correctly).
+ *   - Added SCHEDULE_C_OUTPUTS.jointNetProfit as direct dependency so earnedIncome
+ *     updates whenever any Schedule C slot changes — without waiting for the
+ *     schedule1 Line 3 intermediate node to recompute.
+ *   - SE income is now real Schedule C profit, not a manual proxy.
+ *
+ * This is NOT a printed Form 1040 line. It is a derived quantity used by:
  *   - Form 2441  (Line 4 — primary filer earned income constraint)
  *   - Form 8812  (Line 18a — ACTC earned income formula)
  *   - Schedule EIC (when implemented)
  *
  * WHY THIS EXISTS (instead of using line9_totalIncome):
- *   line9_totalIncome will eventually include unearned income: interest,
- *   dividends, capital gains, pensions, Social Security, etc. Those sources
- *   must NOT count toward earned income for credit purposes. By creating
- *   this dedicated node now, we ensure that when those lines are added to
- *   line9_totalIncome, the credit calculations remain correct automatically.
+ *   line9_totalIncome includes unearned income: interest, dividends, capital
+ *   gains, pensions, Social Security, etc. Those sources must NOT count toward
+ *   earned income for credit purposes. By keeping this dedicated node, credit
+ *   calculations remain correct even as new income sources are added to Line 9.
  *
- * CURRENT SOURCES (Wave 1):
- *   - line1a_w2Wages          — W-2 Box 1 wages (primary + spouse combined)
- *   - line9input_otherIncome  — manual proxy for non-W-2 earned income
- *                               (SE income, etc.) until Schedule C/F/SE built
+ * CURRENT SOURCES:
+ *   - line1a_w2Wages             — W-2 Box 1 wages (primary + spouse combined)
+ *   - scheduleC.joint.totalNetProfit — Schedule C net profit (primary + spouse)
+ *     Loss floors at $0 — a Schedule C loss reduces income tax but does NOT
+ *     reduce earned income for credit purposes (IRC §32(c)(2)(B)).
  *
  * FUTURE SOURCES (add to dependencies + compute as forms are built):
- *   - f1040.joint.scheduleC_netProfit   — Schedule C net self-employment profit
- *   - f1040.joint.scheduleF_netProfit   — Schedule F net farm profit
- *   - f1040.joint.line1b_householdWages — Household employee wages (W-2)
- *   - f1040.joint.line1c_tipIncome      — Tip income not on W-2
+ *   - scheduleF.joint.totalNetProfit — Schedule F net farm profit
+ *   - f1040.joint.line1b_householdWages — Household employee wages
+ *   - f1040.joint.line1c_tipIncome — Tip income not on W-2
  *
  * NEVER INCLUDE:
  *   - Interest (Lines 2a/2b)
@@ -66,7 +69,7 @@ export const earnedIncome: NodeDefinition = {
   kind: NodeKind.COMPUTED,
   label: "Form 1040 — Earned Income (for Credit Calculations)",
   description:
-    "Composite earned income used by Form 2441, Form 8812, and EIC. Includes W-2 wages and other earned income (SE proxy). Excludes unearned income (interest, dividends, capital gains, pensions). Will expand as Schedule C/F/SE are implemented.",
+    "Composite earned income used by Form 2441, Form 8812, and EIC. W-2 wages plus Schedule C net profit (floored at $0 — losses do not reduce earned income). Excludes unearned income. Expands as Schedule F and other earned sources are added.",
   valueType: NodeValueType.CURRENCY,
   allowNegative: false,
   owner: NodeOwner.JOINT,
@@ -75,17 +78,20 @@ export const earnedIncome: NodeDefinition = {
   classifications: ["income.earned"],
   dependencies: [
     `${FORM_ID}.joint.line1a_w2Wages`,
-    "schedule1.joint.line3_businessIncome",
-    // Add future earned income sources here:
-    // 'schedule1.joint.line5_rentalIncome',  ← NO, rental is NOT earned income
-    // `${FORM_ID}.joint.scheduleC_netProfit`,
-    // `${FORM_ID}.joint.scheduleF_netProfit`,
+    "scheduleC.joint.totalNetProfit",
+    // Future earned income sources:
+    // 'scheduleF.joint.totalNetProfit',
+    // `${FORM_ID}.joint.line1b_householdWages`,
+    // `${FORM_ID}.joint.line1c_tipIncome`,
   ],
   compute: (ctx) => {
     const w2 = safeNum(ctx.get(`${FORM_ID}.joint.line1a_w2Wages`));
-    const businessIncome = safeNum(
-      ctx.get("schedule1.joint.line3_businessIncome"),
+    // Floor at 0 — a Schedule C net loss reduces income tax but NOT earned income
+    // for credit calculation purposes (IRC §32(c)(2)(B) excludes losses).
+    const schedCProfit = Math.max(
+      0,
+      safeNum(ctx.get("scheduleC.joint.totalNetProfit")),
     );
-    return w2 + Math.max(0, businessIncome); // floor at 0 — losses don't reduce earned income
+    return w2 + schedCProfit;
   },
 };
