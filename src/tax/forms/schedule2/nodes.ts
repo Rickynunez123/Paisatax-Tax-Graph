@@ -35,6 +35,8 @@ import {
 import { F8889_OUTPUTS } from '../f8889/nodes';
 import { F5329_OUTPUTS } from '../f5329/nodes';
 import { SCHEDULE_SE_OUTPUTS } from "../schedule-se/nodes";
+import { SCHEDULE_H_OUTPUTS } from "../schedule-h/nodes";
+
 
 const APPLICABLE_YEARS = ['2024', '2025'];
 const FORM_ID          = 'schedule2';
@@ -198,6 +200,40 @@ const line8_additionalRetirementTax: NodeDefinition = {
   },
 };
 
+/**
+ * Line 9 — Household employment taxes (Schedule H Line 12).
+ *
+ * ✅ IMPLEMENTED — COMPUTED from Schedule H.
+ *
+ * Schedule H computes FICA (15.3% on cash wages ≥ $2,800) and FUTA
+ * (net 0.6% after state UI credit on first $7,000 per employee).
+ * The combined total flows here directly.
+ *
+ * Unlike Schedule SE, there is NO companion above-the-line deduction.
+ * The full household employment tax lands in total tax (Form 1040 Line 24).
+ *
+ * Gated by Schedule H eligibility — if neither lineA nor lineB is true,
+ * Schedule H returns $0 and this line is skipped.
+ *
+ * IRS: Schedule 2 Instructions, Line 9; IRC §§3101, 3111, 3301
+ */
+const line9_householdEmploymentTax: NodeDefinition = {
+  id: `${FORM_ID}.joint.line9_householdEmploymentTax`,
+  kind: NodeKind.COMPUTED,
+  label: 'Schedule 2 Line 9 — Household Employment Taxes (Schedule H)',
+  description:
+    'Total household employment taxes from Schedule H Line 12: FICA (Social Security + Medicare on wages ≥ $2,800) plus net FUTA (after state UI credit). No companion deduction. Flows to Form 1040 Line 17 → Line 24 total tax.',
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
+  applicableTaxYears: ['2025'], // Schedule H nodes available from this wave
+  classifications: ['tax.selfEmployment'],
+  dependencies: [SCHEDULE_H_OUTPUTS.totalHouseholdTax],
+  compute: (ctx) => safeNum(ctx.get(SCHEDULE_H_OUTPUTS.totalHouseholdTax)),
+  isApplicable: (ctx) => safeNum(ctx.get(SCHEDULE_H_OUTPUTS.totalHouseholdTax)) > 0,
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // LINE 17b — HSA DISTRIBUTION TAX FROM FORM 8889
 // ─────────────────────────────────────────────────────────────────────────────
@@ -256,12 +292,14 @@ const line44_totalAdditionalTaxes: NodeDefinition = {
     `${FORM_ID}.joint.line3_subtotal`,
     `${FORM_ID}.joint.line4_selfEmploymentTax`,
     `${FORM_ID}.joint.line8_additionalRetirementTax`,
+    `${FORM_ID}.joint.line9_householdEmploymentTax`, // NEW
     `${FORM_ID}.joint.line17b_hsaDistributionTax`,
   ],
   compute: (ctx) =>
     safeNum(ctx.get(`${FORM_ID}.joint.line3_subtotal`)) +
     safeNum(ctx.get(`${FORM_ID}.joint.line4_selfEmploymentTax`)) +
     safeNum(ctx.get(`${FORM_ID}.joint.line8_additionalRetirementTax`)) +
+    safeNum(ctx.get(`${FORM_ID}.joint.line9_householdEmploymentTax`)) + // NEW
     safeNum(ctx.get(`${FORM_ID}.joint.line17b_hsaDistributionTax`)),
 };
 
@@ -275,7 +313,9 @@ export const SCHEDULE2_NODES: NodeDefinition[] = [
   line3_subtotal,
   line4_selfEmploymentTax, // ← NEW: SE tax from Schedule SE
   line8_additionalRetirementTax,
+  line9_householdEmploymentTax,
   line17b_hsaDistributionTax,
+
   line44_totalAdditionalTaxes,
 ];
 

@@ -340,17 +340,35 @@ const line12input_earnedIncomeForDependent: NodeDefinition = {
   defaultValue: 0,
 };
 
-const line12_standardDeduction: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line12_deduction`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Form 1040 Line 12 — Standard Deduction',
-  description:        'Standard deduction based on filing status, age, and blindness.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+const line12input_isItemizing: NodeDefinition = {
+  id: `${FORM_ID}.joint.line12input_isItemizing`,
+  kind: NodeKind.INPUT,
+  label: "Form 1040 Line 12 — Elect to Itemize Deductions?",
+  description:
+    "True if the taxpayer elects to itemize deductions on Schedule A instead of taking the standard deduction. Form 1040 Line 12 will use the greater of the two, but the election is required to use Schedule A at all.",
+  valueType: NodeValueType.BOOLEAN,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['deduction.below_the_line'],
+  classifications: ["intermediate"],
+  source: InputSource.PREPARER,
+  questionId: "f1040.q.isItemizing",
+  defaultValue: false,
+};
+
+
+const line12_standardDeduction: NodeDefinition = {
+  id: `${FORM_ID}.joint.line12_deduction`,
+  kind: NodeKind.COMPUTED,
+  label: "Form 1040 Line 12 — Standard or Itemized Deduction",
+  description:
+    "Greater of standard deduction (adjusted for age/blindness) or itemized deductions (Schedule A) when isItemizing = true. Dependent filer formula always uses standard path.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
+  applicableTaxYears: APPLICABLE_YEARS,
+  classifications: ["deduction.below_the_line"],
   dependencies: [
     `${FORM_ID}.joint.line12input_primaryAge`,
     `${FORM_ID}.joint.line12input_primaryBlind`,
@@ -358,16 +376,30 @@ const line12_standardDeduction: NodeDefinition = {
     `${FORM_ID}.joint.line12input_spouseBlind`,
     `${FORM_ID}.joint.line12input_isDependentFiler`,
     `${FORM_ID}.joint.line12input_earnedIncome`,
+    `${FORM_ID}.joint.line12input_isItemizing`,
+    "scheduleA.joint.line17_totalItemizedDeductions",
   ],
   compute: (ctx) => {
     const c = getF1040Constants(ctx.taxYear);
-    const primaryAge   = safeNum(ctx.get(`${FORM_ID}.joint.line12input_primaryAge`));
-    const primaryBlind = ctx.get(`${FORM_ID}.joint.line12input_primaryBlind`) as boolean ?? false;
-    const spouseAge    = safeNum(ctx.get(`${FORM_ID}.joint.line12input_spouseAge`));
-    const spouseBlind  = ctx.get(`${FORM_ID}.joint.line12input_spouseBlind`) as boolean ?? false;
-    const isDependent  = ctx.get(`${FORM_ID}.joint.line12input_isDependentFiler`) as boolean ?? false;
+    const primaryAge = safeNum(
+      ctx.get(`${FORM_ID}.joint.line12input_primaryAge`),
+    );
+    const primaryBlind =
+      (ctx.get(`${FORM_ID}.joint.line12input_primaryBlind`) as boolean) ??
+      false;
+    const spouseAge = safeNum(
+      ctx.get(`${FORM_ID}.joint.line12input_spouseAge`),
+    );
+    const spouseBlind =
+      (ctx.get(`${FORM_ID}.joint.line12input_spouseBlind`) as boolean) ?? false;
+    const isDependent =
+      (ctx.get(`${FORM_ID}.joint.line12input_isDependentFiler`) as boolean) ??
+      false;
+    const isItemizing =
+      (ctx.get(`${FORM_ID}.joint.line12input_isItemizing`) as boolean) ?? false;
     const ei = safeNum(ctx.get(`${FORM_ID}.joint.line12input_earnedIncome`));
     const fs = ctx.filingStatus;
+
     const base = (() => {
       switch (fs) {
         case "married_filing_jointly":
@@ -382,11 +414,13 @@ const line12_standardDeduction: NodeDefinition = {
           return c.standardDeduction.single;
       }
     })();
+
     if (isDependent) {
       const { flatMinimum, earnedIncomeAdder } = c.dependentFilerDeduction;
       return Math.min(Math.max(flatMinimum, ei + earnedIncomeAdder), base);
     }
-    const isSingleRate = fs === 'single' || fs === 'head_of_household';
+
+    const isSingleRate = fs === "single" || fs === "head_of_household";
     const addl = isSingleRate
       ? c.additionalStandardDeduction.single
       : c.additionalStandardDeduction.marriedOrSurviving;
@@ -397,9 +431,21 @@ const line12_standardDeduction: NodeDefinition = {
       if (spouseAge >= 65) count++;
       if (spouseBlind) count++;
     }
-    return base + count * addl;
+    const standardDeduction = base + count * addl;
+
+    if (isItemizing) {
+      const itemized = safeNum(
+        ctx.get("scheduleA.joint.line17_totalItemizedDeductions"),
+      );
+      return Math.max(standardDeduction, itemized);
+    }
+
+    return standardDeduction;
   },
 };
+
+
+
 
 const line13_qbiDeduction: NodeDefinition = {
   id: `${FORM_ID}.joint.line13_qbiDeduction`,
@@ -614,6 +660,7 @@ export const F1040_NODES: NodeDefinition[] = [
   line12input_spouseBlind,
   line12input_isDependentFiler,
   line12input_earnedIncomeForDependent,
+  line12input_isItemizing, // ← moved before line12_standardDeduction
   line12_standardDeduction,
   line13_qbiDeduction,
   line15_taxableIncome,
@@ -634,6 +681,8 @@ export const F1040_OUTPUTS = {
   earnedIncome: `${FORM_ID}.joint.earnedIncome`,
   adjustedGrossIncome: `${FORM_ID}.joint.line11_adjustedGrossIncome`,
   standardDeduction: `${FORM_ID}.joint.line12_deduction`,
+  isItemizing: `${FORM_ID}.joint.line12input_isItemizing`,
+  itemizedDeductions: "scheduleA.joint.line17_totalItemizedDeductions",
   taxableIncome: `${FORM_ID}.joint.line15_taxableIncome`,
   tax: `${FORM_ID}.joint.line16_tax`,
   additionalTaxes: `${FORM_ID}.joint.line17_additionalTaxes`,

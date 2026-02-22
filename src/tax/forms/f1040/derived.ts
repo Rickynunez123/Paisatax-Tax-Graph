@@ -79,6 +79,7 @@ export const earnedIncome: NodeDefinition = {
   dependencies: [
     `${FORM_ID}.joint.line1a_w2Wages`,
     "scheduleC.joint.totalNetProfit",
+    "scheduleF.joint.totalNetProfit", // NEW — farm earned income
     // Future earned income sources:
     // 'scheduleF.joint.totalNetProfit',
     // `${FORM_ID}.joint.line1b_householdWages`,
@@ -86,12 +87,15 @@ export const earnedIncome: NodeDefinition = {
   ],
   compute: (ctx) => {
     const w2 = safeNum(ctx.get(`${FORM_ID}.joint.line1a_w2Wages`));
-    // Floor at 0 — a Schedule C net loss reduces income tax but NOT earned income
-    // for credit calculation purposes (IRC §32(c)(2)(B) excludes losses).
+    // Floor at 0 — losses reduce income tax but NOT earned income for credit purposes
     const schedCProfit = Math.max(
       0,
       safeNum(ctx.get("scheduleC.joint.totalNetProfit")),
     );
-    return w2 + schedCProfit;
+    const schedFProfit = Math.max(
+      0,
+      safeNum(ctx.get("scheduleF.joint.totalNetProfit")),
+    ); // NEW
+    return w2 + schedCProfit + schedFProfit;
   },
 };

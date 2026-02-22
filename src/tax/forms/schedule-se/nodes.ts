@@ -54,25 +54,34 @@ function safeNum(value: unknown): number {
 /**
  * Line 2 / Line 3 — Net profit from all SE sources.
  *
- * Currently: Schedule C net profit only.
- * Future: Schedule C + Schedule F (farm income).
+ * CHANGES FROM PREVIOUS VERSION (Schedule A/F/H wave):
+ *   + scheduleF.joint.totalNetProfit added — farm income is SE income (IRC §1402(a))
  *
- * Negative SE income does not create a negative SE tax — floored at 0
- * for SE tax purposes (a loss reduces income tax but not SE tax below zero).
+ * Both Schedule C and Schedule F net losses floor at $0 for SE tax purposes.
+ * A combined C+F loss reduces income tax but cannot create negative SE tax.
  */
 const line3_netProfitFromSE: NodeDefinition = {
-  id:                 `${FORM_ID}.joint.line3_netProfitFromSE`,
-  kind:               NodeKind.COMPUTED,
-  label:              'Schedule SE Line 3 — Net Profit from Self-Employment',
-  description:        'Combined net profit from all self-employment sources. Currently: Schedule C net profit only. Future: adds Schedule F (farm). Negative values floored at $0 — SE losses reduce income tax but cannot produce negative SE tax.',
-  valueType:          NodeValueType.CURRENCY,
-  allowNegative:      false,
-  owner:              NodeOwner.JOINT,
-  repeatable:         false,
+  id: `${FORM_ID}.joint.line3_netProfitFromSE`,
+  kind: NodeKind.COMPUTED,
+  label: "Schedule SE Line 3 — Net Profit from Self-Employment",
+  description:
+    "Combined net profit from all self-employment sources: Schedule C (business) + Schedule F (farm). Negative values floored at $0 — SE losses reduce income tax but cannot produce negative SE tax.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: false,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
   applicableTaxYears: APPLICABLE_YEARS,
-  classifications:    ['income.selfEmployment'],
-  dependencies:       ['scheduleC.joint.totalNetProfit'],
-  compute: (ctx) => Math.max(0, safeNum(ctx.get('scheduleC.joint.totalNetProfit'))),
+  classifications: ["income.selfEmployment"],
+  dependencies: [
+    "scheduleC.joint.totalNetProfit",
+    "scheduleF.joint.totalNetProfit", // NEW
+  ],
+  compute: (ctx) =>
+    Math.max(
+      0,
+      safeNum(ctx.get("scheduleC.joint.totalNetProfit")) +
+        safeNum(ctx.get("scheduleF.joint.totalNetProfit")),
+    ),
 };
 
 /**

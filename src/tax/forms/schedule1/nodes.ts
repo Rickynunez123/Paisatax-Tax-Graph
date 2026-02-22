@@ -55,6 +55,7 @@ import {
 import { F8889_OUTPUTS } from '../f8889/nodes';
 import { SCHEDULE_C_OUTPUTS } from "../schedule-c/nodes";
 import { SCHEDULE_SE_OUTPUTS } from "../schedule-se/nodes";
+import { SCHEDULE_F_OUTPUTS } from "../schedule-f/nodes";
 
 const APPLICABLE_YEARS = ['2024', '2025'];
 const FORM_ID          = 'schedule1';
@@ -216,16 +217,35 @@ const line5_rentalIncome = deferredIncome(
 
 /**
  * Line 6 — Farm income or (loss) from Schedule F.
- * Can be negative.
- * 🚧 DEFERRED — will become COMPUTED when Schedule F is implemented.
+ *
+ * ✅ IMPLEMENTED — now COMPUTED from scheduleF.joint.totalNetProfit.
+ *
+ * Previously a deferred INPUT. Now wired directly to the Schedule F
+ * joint aggregator (sum of primary + spouse net profit/loss across
+ * all Schedule F slots). Can be negative when expenses exceed income.
+ *
+ * Flows to:
+ *   → line10_totalAdditionalIncome (Part I total → Form 1040 Line 8)
+ *   → earnedIncome in f1040/derived.ts (credit calculations)
+ *   → scheduleSE.joint.line3_netProfitFromSE (included in SE tax base)
+ *
+ * IRS: Schedule 1 Instructions, Line 6
  */
-const line6_farmIncome = deferredIncome(
-  'line6_farmIncome',
-  '6',
-  'Farm Income or (Loss) — Schedule F',
-  'schedule1.q.farmIncome',
-  true, // allowNegative
-);
+const line6_farmIncome: NodeDefinition = {
+  id: `${FORM_ID}.joint.line6_farmIncome`,
+  kind: NodeKind.COMPUTED,
+  label: "Schedule 1 Line 6 — Farm Income or (Loss)",
+  description:
+    "Net profit or loss from all Schedule F farm operations (primary + spouse). Negative when total farm expenses exceed farm income. Flows to Form 1040 Line 8 (via Line 10) and Schedule SE.",
+  valueType: NodeValueType.CURRENCY,
+  allowNegative: true,
+  owner: NodeOwner.JOINT,
+  repeatable: false,
+  applicableTaxYears: ["2025"], // Schedule F only available from this wave
+  classifications: ["income.selfEmployment"],
+  dependencies: [SCHEDULE_F_OUTPUTS.jointNetProfit],
+  compute: (ctx) => safeNum(ctx.get(SCHEDULE_F_OUTPUTS.jointNetProfit)),
+};
 
 /**
  * Line 7 — Unemployment compensation.
